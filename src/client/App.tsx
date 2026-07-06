@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getState, logWorkout, markSeen, removeWorkout, type ClientApiError } from "./api";
+import { mergeAchievementQueue } from "./achievementQueue";
 import { BottomNav } from "./components/BottomNav";
 import { AchievementOverlay } from "./components/AchievementOverlay";
 import { CoupleTracker } from "./components/CoupleTracker";
@@ -23,12 +24,8 @@ export function App() {
   const viewerUser: UserSlug | null = route === "doug" || route === "rosie" ? route : null;
 
   const enqueueAchievements = useCallback((events: AchievementEvent[]) => {
-    setAchievementQueue((current) => {
-      const known = new Set(current.map((event) => event.id));
-      const additions = events.filter((event) => !known.has(event.id));
-      return [...current, ...additions];
-    });
-  }, []);
+    setAchievementQueue((current) => mergeAchievementQueue(current, events, activeAchievement));
+  }, [activeAchievement]);
 
   const refresh = useCallback(async (viewer: ViewerSlug) => {
     setError(null);
