@@ -1,5 +1,6 @@
 import { Dumbbell, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
 
 interface HoldToLogTileProps {
   completed: boolean;
@@ -12,23 +13,11 @@ const holdDurationMs = 1500;
 export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTileProps) {
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
-  const frameRef = useRef<number | null>(null);
-  const startedAtRef = useRef(0);
-  const isHoldingRef = useRef(false);
-
-  const cancelFrame = () => {
-    if (frameRef.current !== null) {
-      window.cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-    }
-  };
+  const controllerRef = useRef<HoldGestureController | null>(null);
 
   useEffect(() => {
     return () => {
-      isHoldingRef.current = false;
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current);
-      }
+      controllerRef.current?.cleanup();
     };
   }, []);
 
@@ -38,47 +27,26 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    isHoldingRef.current = true;
-    startedAtRef.current = performance.now();
-    tick();
-  };
-
-  const stop = () => {
-    if (!isHoldingRef.current) {
-      return;
-    }
-
-    isHoldingRef.current = false;
-    cancelFrame();
-    setProgress(0);
-  };
-
-  const tick = () => {
-    cancelFrame();
-    frameRef.current = window.requestAnimationFrame(async () => {
-      if (!isHoldingRef.current) {
-        return;
-      }
-
-      const elapsed = performance.now() - startedAtRef.current;
-      const nextProgress = Math.min(1, elapsed / holdDurationMs);
-      setProgress(nextProgress);
-
-      if (nextProgress >= 1) {
-        isHoldingRef.current = false;
-        cancelFrame();
+    controllerRef.current = createHoldGestureController({
+      durationMs: holdDurationMs,
+      getNow: () => performance.now(),
+      onProgress: setProgress,
+      requestFrame: (callback) => window.requestAnimationFrame(callback),
+      cancelFrame: (frameId) => window.cancelAnimationFrame(frameId),
+      onComplete: async () => {
         setBusy(true);
         try {
           await onComplete();
         } finally {
           setBusy(false);
-          setProgress(0);
         }
-        return;
       }
-
-      tick();
     });
+    controllerRef.current.start();
+  };
+
+  const stop = () => {
+    controllerRef.current?.stop();
   };
 
   const label = completed ? "Workout logged" : busy ? "Logging..." : "Hold to log workout";

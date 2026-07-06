@@ -1,7 +1,9 @@
 import { Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { compareIsoDates } from "../../shared/date.js";
 import type { CalendarDay } from "../../shared/date.js";
 import type { UserSlug } from "../../shared/types.js";
+import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
 
 interface PersonalCalendarProps {
   days: CalendarDay[];
@@ -19,6 +21,7 @@ interface CoupleCalendarProps {
 }
 
 const labels = ["S", "M", "T", "W", "T", "F", "S"];
+const calendarHoldDurationMs = 900;
 
 export function PersonalCalendar({
   days,
@@ -37,26 +40,89 @@ export function PersonalCalendar({
         const future = compareIsoDates(day.isoDate, today) > 0;
         const className = getDayClass(day, today, complete, future);
 
-        return (
+        return complete ? (
           <button
             className={className}
             type="button"
             key={day.isoDate}
             disabled={future}
-            onClick={() => {
-              if (complete) {
-                onRemoveRequest(day.isoDate);
-              } else {
-                onAdd(day.isoDate);
-              }
-            }}
+            onClick={() => onRemoveRequest(day.isoDate)}
           >
             <span>{day.dayOfMonth}</span>
-            {complete ? <Check aria-hidden="true" /> : null}
+            <Check aria-hidden="true" />
           </button>
+        ) : (
+          <HoldCalendarDayButton
+            className={className}
+            date={day.isoDate}
+            dayOfMonth={day.dayOfMonth}
+            disabled={future}
+            key={day.isoDate}
+            onComplete={onAdd}
+          />
         );
       })}
     </CalendarShell>
+  );
+}
+
+function HoldCalendarDayButton({
+  className,
+  date,
+  dayOfMonth,
+  disabled,
+  onComplete
+}: {
+  className: string;
+  date: string;
+  dayOfMonth: number;
+  disabled: boolean;
+  onComplete: (date: string) => void;
+}) {
+  const [progress, setProgress] = useState(0);
+  const controllerRef = useRef<HoldGestureController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      controllerRef.current?.cleanup();
+    };
+  }, []);
+
+  const start = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (disabled) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    controllerRef.current = createHoldGestureController({
+      durationMs: calendarHoldDurationMs,
+      getNow: () => performance.now(),
+      onProgress: setProgress,
+      requestFrame: (callback) => window.requestAnimationFrame(callback),
+      cancelFrame: (frameId) => window.cancelAnimationFrame(frameId),
+      onComplete: async () => onComplete(date)
+    });
+    controllerRef.current.start();
+  };
+
+  const stop = () => {
+    controllerRef.current?.stop();
+  };
+
+  return (
+    <button
+      className={`${className} hold-calendar-day`}
+      type="button"
+      disabled={disabled}
+      onClick={(event) => event.preventDefault()}
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onPointerLeave={stop}
+    >
+      <span className="calendar-hold-progress" style={{ transform: `scaleX(${progress})` }} />
+      <span>{dayOfMonth}</span>
+    </button>
   );
 }
 

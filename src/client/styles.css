@@ -375,6 +375,20 @@ button.calendar-day {
   touch-action: manipulation;
 }
 
+.hold-calendar-day {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.calendar-hold-progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: 4px;
+  transform-origin: left;
+  background: var(--accent, var(--gold));
+  box-shadow: 0 0 18px var(--accent, var(--gold));
+}
+
 .calendar-day svg {
   width: 13px;
   height: 13px;
