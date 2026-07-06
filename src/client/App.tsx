@@ -6,7 +6,7 @@ import { AchievementOverlay } from "./components/AchievementOverlay";
 import { CoupleTracker } from "./components/CoupleTracker";
 import { PersonalTracker } from "./components/PersonalTracker";
 import { SoundLab } from "./components/SoundLab";
-import { getAchievementFeedback, getWorkoutFeedback } from "./rewardFeedback";
+import { getAchievementFeedback, getFeedbackDurationMs, getWorkoutFeedback } from "./rewardFeedback";
 import { isTrackerRoute, validAppRoutes, type AppRoute } from "./routes";
 import { useFeedback } from "./useFeedback";
 import type { AchievementEvent, TrackerState, UserSlug, ViewerSlug } from "../shared/types.js";
@@ -17,6 +17,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [rewardClass, setRewardClass] = useState("reward-none");
+  const [rewardDurationMs, setRewardDurationMs] = useState(() => getFeedbackDurationMs("tap"));
   const [achievementQueue, setAchievementQueue] = useState<AchievementEvent[]>([]);
   const [activeAchievement, setActiveAchievement] = useState<AchievementEvent | null>(null);
   const { muted, setMuted, unlocked, unlock, play, vibrate } = useFeedback();
@@ -92,12 +93,20 @@ export function App() {
         enqueueAchievements(result.state.pendingAchievements);
         const nextFeedback = getWorkoutFeedback({
           countAfter: result.state.counts[viewerUser].week,
-          created: result.created
+          created: result.created,
+          source
         });
+        const pendingAchievementFeedback = result.state.pendingAchievements[0]
+          ? getAchievementFeedback(result.state.pendingAchievements[0].eventType)
+          : null;
         setRewardClass(nextFeedback.rewardClass);
-        window.setTimeout(() => setRewardClass("reward-none"), 1400);
-        void play(nextFeedback.sound);
-        vibrate(nextFeedback.haptic);
+        setRewardDurationMs(pendingAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
+        window.setTimeout(() => setRewardClass("reward-none"), pendingAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
+
+        if (!pendingAchievementFeedback) {
+          void play(nextFeedback.sound);
+          vibrate(nextFeedback.haptic);
+        }
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Could not log workout.");
       } finally {
@@ -178,6 +187,7 @@ export function App() {
         muted={muted}
         busy={busy}
         rewardClass={rewardClass}
+        rewardDurationMs={rewardDurationMs}
         onMuteChange={setMuted}
         onNavigate={navigate}
         onLog={handleLog}
@@ -196,6 +206,7 @@ export function App() {
     playHoldStart,
     refresh,
     rewardClass,
+    rewardDurationMs,
     route,
     muted,
     play,

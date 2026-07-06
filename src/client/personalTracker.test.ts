@@ -41,6 +41,7 @@ describe("PersonalTracker", () => {
         muted: false,
         busy: false,
         rewardClass: "reward-none",
+        rewardDurationMs: 11102,
         onMuteChange: () => undefined,
         onNavigate: () => undefined,
         onLog: async () => undefined,
@@ -52,5 +53,26 @@ describe("PersonalTracker", () => {
 
     assert.match(markup, /mission-badge/);
     assert.match(markup, /WEEK LOCKED/);
+  });
+
+  it("passes the reward sound duration into the hold tile animation", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(PersonalTracker, {
+        state: completeState,
+        userSlug: "doug",
+        muted: false,
+        busy: false,
+        rewardClass: "reward-complete",
+        rewardDurationMs: 11102,
+        onMuteChange: () => undefined,
+        onNavigate: () => undefined,
+        onLog: async () => undefined,
+        onRemove: async () => undefined,
+        onHoldStart: () => undefined,
+        onHoldCancel: () => undefined
+      })
+    );
+
+    assert.match(markup, /--reward-duration:11102ms/);
   });
 });

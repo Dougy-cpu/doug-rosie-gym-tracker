@@ -18,4 +18,10 @@ describe("service worker asset policy", () => {
     assert.doesNotMatch(source, /APP_SHELL\s*=\s*\[[^\]]*"\/rosie"/s);
     assert.doesNotMatch(source, /APP_SHELL\s*=\s*\[[^\]]*"\/couple"/s);
   });
+
+  it("parses as executable service worker JavaScript", async () => {
+    const source = await readFile(serviceWorkerUrl, "utf8");
+
+    assert.doesNotThrow(() => new Function(source));
+  });
 });

@@ -6,6 +6,7 @@ interface HoldToLogTileProps {
   completed: boolean;
   disabled: boolean;
   rewardClass: string;
+  rewardDurationMs: number;
   onComplete: () => Promise<void>;
   onHoldStart: () => void;
   onHoldCancel: () => void;
@@ -24,6 +25,7 @@ export function HoldToLogTile({
   completed,
   disabled,
   rewardClass,
+  rewardDurationMs,
   onComplete,
   onHoldStart,
   onHoldCancel
@@ -89,6 +91,7 @@ export function HoldToLogTile({
         .join(" ")}
       type="button"
       disabled={disabled || completed || busy}
+      style={{ "--reward-duration": `${rewardDurationMs}ms` } as React.CSSProperties}
       onClick={(event) => cancelHoldTileClickActivation(event, stop)}
       onPointerDown={start}
       onPointerUp={stop}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FeedbackSound, HapticPattern } from "./rewardFeedback";
+import { feedbackSoundAssets, type FeedbackSound, type HapticPattern } from "./rewardFeedback";
 
 const muteStorageKey = "gym-tracker-muted";
 
@@ -9,6 +9,7 @@ export function useFeedback() {
   const [muted, setMutedState] = useState(() => localStorage.getItem(muteStorageKey) === "true");
   const [unlocked, setUnlocked] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioElementsRef = useRef<Partial<Record<FeedbackSound, HTMLAudioElement>>>({});
 
   useEffect(() => {
     localStorage.setItem(muteStorageKey, String(muted));
@@ -46,6 +47,11 @@ export function useFeedback() {
       try {
         await unlock();
       } catch {
+        return;
+      }
+
+      if (await playAudioAsset(kind, audioElementsRef.current)) {
+        setUnlocked(true);
         return;
       }
 
@@ -92,6 +98,27 @@ export async function resumeAudioContextSafely(context: AudioContext): Promise<b
     }
 
     return context.state === "running";
+  } catch {
+    return false;
+  }
+}
+
+async function playAudioAsset(kind: FeedbackSound, audioElements: Partial<Record<FeedbackSound, HTMLAudioElement>>): Promise<boolean> {
+  const asset = feedbackSoundAssets[kind];
+  if (!asset || typeof Audio === "undefined") {
+    return false;
+  }
+
+  const audio = audioElements[kind] ?? new Audio(asset.src);
+  audioElements[kind] = audio;
+  audio.preload = "auto";
+  audio.volume = kind === "couple-complete" ? 0.9 : 0.82;
+
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+    await audio.play();
+    return true;
   } catch {
     return false;
   }

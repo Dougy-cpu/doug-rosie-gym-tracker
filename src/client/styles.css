@@ -517,7 +517,7 @@ button:focus-visible {
 .reward-complete .hold-shockwave,
 .lab-reward-card.reward-daily .hold-shockwave,
 .lab-reward-card.reward-first .hold-shockwave {
-  animation: shockwave 760ms ease-out;
+  animation: shockwave var(--reward-duration, 760ms) ease-out;
 }
 
 .reward-daily,
@@ -525,7 +525,7 @@ button:focus-visible {
 .reward-momentum,
 .reward-pressure,
 .reward-complete {
-  animation: rewardPop 620ms ease-out;
+  animation: rewardPop var(--reward-duration, 620ms) ease-out;
 }
 
 .quote-card,
@@ -937,7 +937,7 @@ button.calendar-day {
   border: 1px solid rgba(var(--accent-rgb), 0.8);
   border-radius: 999px;
   transform: translate(-50%, -50%);
-  animation: shockwave 980ms ease-out 160ms;
+  animation: shockwave var(--achievement-duration, 980ms) ease-out 160ms;
 }
 
 .particle-field {
@@ -956,7 +956,7 @@ button.calendar-day {
   border-radius: 99px;
   background: linear-gradient(180deg, var(--accent), transparent);
   transform-origin: 50% 180px;
-  animation: particleBurst 900ms ease-out both;
+  animation: particleBurst var(--achievement-duration, 900ms) ease-out both;
 }
 
 .particle-field span:nth-child(1) { transform: rotate(0deg) translateY(-60px); }
@@ -1079,7 +1079,7 @@ button.calendar-day {
   border-radius: 7px;
   background: linear-gradient(90deg, transparent, var(--accent));
   box-shadow: 0 0 28px rgba(255, 201, 40, 0.42);
-  animation: slamTogether 620ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
+  animation: slamTogether var(--achievement-duration, 620ms) cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
 }
 
 .doug-slam {

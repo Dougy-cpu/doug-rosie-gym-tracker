@@ -17,6 +17,7 @@ interface PersonalTrackerProps {
   muted: boolean;
   busy: boolean;
   rewardClass: string;
+  rewardDurationMs: number;
   onMuteChange: (muted: boolean) => void;
   onNavigate: (viewer: ViewerSlug) => void;
   onLog: (date: string, source: "hold" | "backfill") => Promise<void>;
@@ -31,6 +32,7 @@ export function PersonalTracker({
   muted,
   busy,
   rewardClass,
+  rewardDurationMs,
   onMuteChange,
   onNavigate,
   onLog,
@@ -94,6 +96,7 @@ export function PersonalTracker({
           completed={todayDone}
           disabled={busy}
           rewardClass={rewardClass}
+          rewardDurationMs={rewardDurationMs}
           onComplete={() => onLog(state.today, "hold")}
           onHoldStart={onHoldStart}
           onHoldCancel={onHoldCancel}

@@ -1,7 +1,8 @@
 import { Crown, ShieldCheck, Trophy } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { getDeterministicQuote } from "../../content/quotes.js";
 import type { AchievementEvent, TrackerState, UserSlug } from "../../shared/types.js";
+import { getAchievementFeedback } from "../rewardFeedback";
 import { ProgressSegments } from "./ProgressSegments";
 
 interface AchievementOverlayProps {
@@ -18,6 +19,7 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
   const title = isCouple ? "COUPLE WEEK COMPLETE" : "WEEKLY TARGET COMPLETE";
   const metric = isCouple ? "8 / 8" : "4 / 4";
   const copy = isCouple ? "HOUSEHOLD OBJECTIVE COMPLETE" : `${viewerName.toUpperCase()} LOCKED THE WEEKLY TARGET`;
+  const durationMs = getAchievementFeedback(achievement.eventType).durationMs;
   const quote = getDeterministicQuote(
     isCouple ? "couple-complete" : "individual-complete",
     `${achievement.eventType}-${achievement.weekStartDate}-${viewer}`
@@ -25,9 +27,9 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
 
   useEffect(() => {
     setCanDismiss(false);
-    const timerId = window.setTimeout(() => setCanDismiss(true), 900);
+    const timerId = window.setTimeout(() => setCanDismiss(true), durationMs);
     return () => window.clearTimeout(timerId);
-  }, [achievement.id]);
+  }, [achievement.id, durationMs]);
 
   return (
     <div
@@ -36,7 +38,10 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
       aria-modal="true"
       aria-labelledby="achievement-title"
     >
-      <section className={isCouple ? "achievement-card couple" : "achievement-card"}>
+      <section
+        className={isCouple ? "achievement-card couple" : "achievement-card"}
+        style={{ "--achievement-duration": `${durationMs}ms` } as CSSProperties}
+      >
         <div className="achievement-shockwave" aria-hidden="true" />
         <div className="particle-field" aria-hidden="true">
           {Array.from({ length: isCouple ? 18 : 12 }, (_, index) => (

@@ -1,9 +1,9 @@
 import { Activity, BadgeCheck, Bolt, Flame, HeartPulse, RadioTower, ShieldCheck, Zap } from "lucide-react";
-import type { ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { useState } from "react";
 import type { AchievementEvent, TrackerState } from "../../shared/types.js";
 import type { AppRoute } from "../routes";
-import type { FeedbackSound, HapticPattern } from "../rewardFeedback";
+import { getFeedbackDurationMs, type FeedbackSound, type HapticPattern } from "../rewardFeedback";
 import { MuteToggle } from "./MuteToggle";
 import { AchievementOverlay } from "./AchievementOverlay";
 import { ProgressSegments } from "./ProgressSegments";
@@ -26,10 +26,12 @@ const soundTests: Array<{
   icon: ReactElement;
 }> = [
   { label: "Daily", detail: "Session locked", sound: "daily", haptic: [20, 30, 40], icon: <Bolt /> },
+  { label: "Calendar", detail: "Backfill locked", sound: "backfill", haptic: [20, 30, 40], icon: <BadgeCheck /> },
   { label: "First", detail: "Inertia broken", sound: "first", haptic: [30, 30, 70], icon: <Zap /> },
   { label: "Momentum", detail: "Two banked", sound: "momentum", haptic: [20, 30, 40], icon: <Activity /> },
   { label: "One more", detail: "Target in range", sound: "one-more", haptic: [20, 20, 30, 20, 60], icon: <Flame /> },
-  { label: "4/4", detail: "Weekly complete", sound: "weekly-complete", haptic: [40, 40, 80, 40, 120], icon: <BadgeCheck /> },
+  { label: "4th", detail: "Weekly locked", sound: "weekly-complete", haptic: [40, 40, 80, 40, 120], icon: <BadgeCheck /> },
+  { label: "4/4", detail: "Individual overlay", sound: "individual-complete", haptic: [40, 40, 80, 40, 120], icon: <ShieldCheck /> },
   {
     label: "8/8",
     detail: "Couple complete",
@@ -49,13 +51,16 @@ export function SoundLab({
   onVibrate
 }: SoundLabProps) {
   const [demoReward, setDemoReward] = useState("reward-none");
+  const [demoRewardDurationMs, setDemoRewardDurationMs] = useState(() => getFeedbackDurationMs("daily"));
   const [overlay, setOverlay] = useState<"individual" | "couple" | null>(null);
 
   const triggerReward = (rewardClass: string, sound: FeedbackSound, haptic: HapticPattern) => {
+    const durationMs = getFeedbackDurationMs(sound);
     setDemoReward(rewardClass);
+    setDemoRewardDurationMs(durationMs);
     onPlay(sound);
     onVibrate(haptic);
-    window.setTimeout(() => setDemoReward("reward-none"), 1400);
+    window.setTimeout(() => setDemoReward("reward-none"), durationMs);
   };
 
   return (
@@ -83,7 +88,10 @@ export function SoundLab({
         </button>
       </section>
 
-      <section className={`lab-reward-card ${demoReward}`}>
+      <section
+        className={`lab-reward-card ${demoReward}`}
+        style={{ "--reward-duration": `${demoRewardDurationMs}ms` } as CSSProperties}
+      >
         <span className="hold-shockwave" aria-hidden="true" />
         <HeartPulse aria-hidden="true" />
         <strong>Daily animation test</strong>
