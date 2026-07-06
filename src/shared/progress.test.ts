@@ -19,6 +19,12 @@ describe("progress tone", () => {
     assert.equal(getProgressTone(4, "personal").headline, "Objective Complete");
   });
 
+  it("uses the Stage 2 milestone copy for personal progress states", () => {
+    assert.equal(getProgressTone(1, "personal").subcopy, "System online. Zero is dead. Good.");
+    assert.equal(getProgressTone(2, "personal").subcopy, "Two banked. Halfway.");
+    assert.equal(getProgressTone(3, "personal").subcopy, "One more. Do not waste the setup.");
+  });
+
   it("caps visual intensity when counts exceed target", () => {
     assert.deepEqual(getProgressTone(9, "couple"), {
       quoteContext: "couple-complete",

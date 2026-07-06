@@ -57,7 +57,7 @@ export function getProgressTone(count: number, scope: ProgressScope) {
       quoteContext: "momentum" as const,
       intensity: "momentum" as const,
       headline: "Momentum",
-      subcopy: "Halfway to target.",
+      subcopy: "Two banked. Halfway.",
       accent: "orange" as const
     };
   }
@@ -67,7 +67,7 @@ export function getProgressTone(count: number, scope: ProgressScope) {
       quoteContext: "first-workout" as const,
       intensity: "first" as const,
       headline: "Inertia Broken",
-      subcopy: "Week is live.",
+      subcopy: "System online. Zero is dead. Good.",
       accent: "lime" as const
     };
   }
