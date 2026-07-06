@@ -25,6 +25,8 @@ Develop on Replit:
 npm run dev
 ```
 
+The Vite dev server allows Replit preview hosts through `server.allowedHosts` in `vite.config.ts`. If Replit changes preview domains in the future and shows a blocked-host message, add the new controlled Replit domain there rather than setting `allowedHosts: true`.
+
 Build and typecheck:
 
 ```bash
