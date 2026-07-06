@@ -57,6 +57,8 @@ describe("AchievementOverlay", () => {
 
     assert.match(markup, /WEEKLY TARGET COMPLETE/);
     assert.match(markup, /4 \/ 4/);
+    assert.match(markup, /achievement-badge-unlock/);
+    assert.match(markup, /BADGE UNLOCKED/);
   });
 
   it("uses the exact couple completion copy and a combined 8 out of 8 slam meter", () => {

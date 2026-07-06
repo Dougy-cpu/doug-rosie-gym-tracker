@@ -62,7 +62,13 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
             </div>
           </>
         ) : (
-          <ProgressSegments value={4} target={4} className="achievement-segments" />
+          <>
+            <div className="achievement-badge-unlock">
+              <ShieldCheck aria-hidden="true" />
+              <span>BADGE UNLOCKED</span>
+            </div>
+            <ProgressSegments value={4} target={4} className="achievement-segments" />
+          </>
         )}
 
         <p>{quote}</p>
