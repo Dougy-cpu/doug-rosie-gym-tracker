@@ -19,13 +19,15 @@ Install dependencies:
 npm install
 ```
 
-Develop on Replit:
+Run on Replit:
 
 ```bash
-npm run dev
+npm run replit
 ```
 
-The Vite dev server allows Replit preview hosts through `server.allowedHosts` in `vite.config.ts`. If Replit changes preview domains in the future and shows a blocked-host message, add the new controlled Replit domain there rather than setting `allowedHosts: true`.
+This builds the client and starts the compiled Express server. Use this on Replit so only the app port opens. `npm run dev` is for local development and may open Vite's hot-reload port as well.
+
+The Vite dev server allows Replit preview hosts through `server.allowedHosts` in `vite.config.ts`. If Replit changes preview domains in the future and shows a blocked-host message during `npm run dev`, add the new controlled Replit domain there rather than setting `allowedHosts: true`.
 
 Build and typecheck:
 

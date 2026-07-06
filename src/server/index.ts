@@ -6,7 +6,7 @@ import { ApiError, badRequest } from "./errors.js";
 import { buildTrackerState, deleteWorkout, isUserSlug, logWorkout, markAchievementSeen, parseViewer } from "./state.js";
 
 const port = Number(process.env.PORT ?? 5000);
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start";
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
