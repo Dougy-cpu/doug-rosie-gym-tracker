@@ -1,4 +1,4 @@
-import { ChevronDown, Crosshair, Loader2 } from "lucide-react";
+import { BadgeCheck, ChevronDown, Crosshair, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getDeterministicQuote } from "../../content/quotes.js";
 import { compareIsoDates, formatShortRange } from "../../shared/date.js";
@@ -50,6 +50,7 @@ export function PersonalTracker({
   );
 
   const cappedCount = Math.min(count, target);
+  const missionComplete = cappedCount >= target;
 
   return (
     <main className={`screen personal tone-${tone.accent} intensity-${tone.intensity}`}>
@@ -77,6 +78,12 @@ export function PersonalTracker({
           <span>{cappedCount}</span>
           <small>/ {target}</small>
         </div>
+        {missionComplete ? (
+          <div className="mission-badge">
+            <BadgeCheck aria-hidden="true" />
+            <span>WEEK LOCKED</span>
+          </div>
+        ) : null}
         <ProgressSegments value={count} target={target} />
         <p className="progress-copy">{tone.subcopy}</p>
       </section>
