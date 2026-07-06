@@ -13,6 +13,8 @@ interface PersonalCalendarProps {
   workoutsByUser: Record<UserSlug, string[]>;
   onAdd: (date: string) => void;
   onRemoveRequest: (date: string) => void;
+  onHoldStart: () => void;
+  onHoldCancel: () => void;
 }
 
 interface CoupleCalendarProps {
@@ -30,7 +32,9 @@ export function PersonalCalendar({
   userSlug,
   workoutsByUser,
   onAdd,
-  onRemoveRequest
+  onRemoveRequest,
+  onHoldStart,
+  onHoldCancel
 }: PersonalCalendarProps) {
   const completedDates = workoutsByUser[userSlug];
 
@@ -60,6 +64,8 @@ export function PersonalCalendar({
             disabled={future}
             key={day.isoDate}
             onComplete={onAdd}
+            onHoldStart={onHoldStart}
+            onHoldCancel={onHoldCancel}
           />
         );
       })}
@@ -72,13 +78,17 @@ function HoldCalendarDayButton({
   date,
   dayOfMonth,
   disabled,
-  onComplete
+  onComplete,
+  onHoldStart,
+  onHoldCancel
 }: {
   className: string;
   date: string;
   dayOfMonth: number;
   disabled: boolean;
   onComplete: (date: string) => void;
+  onHoldStart: () => void;
+  onHoldCancel: () => void;
 }) {
   const [progress, setProgress] = useState(0);
   const controllerRef = useRef<HoldGestureController | null>(null);
@@ -95,6 +105,7 @@ function HoldCalendarDayButton({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    onHoldStart();
     controllerRef.current = createHoldGestureController({
       durationMs: CALENDAR_HOLD_DURATION_MS,
       getNow: () => performance.now(),
@@ -107,7 +118,11 @@ function HoldCalendarDayButton({
   };
 
   const stop = () => {
+    const wasHolding = controllerRef.current?.isHolding() ?? false;
     controllerRef.current?.stop();
+    if (wasHolding) {
+      onHoldCancel();
+    }
   };
 
   return (

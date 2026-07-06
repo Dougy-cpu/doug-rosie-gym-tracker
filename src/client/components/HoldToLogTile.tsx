@@ -5,13 +5,24 @@ import { createHoldGestureController, type HoldGestureController } from "../hold
 interface HoldToLogTileProps {
   completed: boolean;
   disabled: boolean;
+  rewardClass: string;
   onComplete: () => Promise<void>;
+  onHoldStart: () => void;
+  onHoldCancel: () => void;
 }
 
-export const HOLD_TO_LOG_DURATION_MS = 1500;
+export const HOLD_TO_LOG_DURATION_MS = 700;
 
-export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTileProps) {
+export function HoldToLogTile({
+  completed,
+  disabled,
+  rewardClass,
+  onComplete,
+  onHoldStart,
+  onHoldCancel
+}: HoldToLogTileProps) {
   const [progress, setProgress] = useState(0);
+  const [holding, setHolding] = useState(false);
   const [busy, setBusy] = useState(false);
   const controllerRef = useRef<HoldGestureController | null>(null);
 
@@ -27,6 +38,8 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    setHolding(true);
+    onHoldStart();
     controllerRef.current = createHoldGestureController({
       durationMs: HOLD_TO_LOG_DURATION_MS,
       getNow: () => performance.now(),
@@ -39,6 +52,7 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
           await onComplete();
         } finally {
           setBusy(false);
+          setHolding(false);
         }
       }
     });
@@ -46,14 +60,26 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
   };
 
   const stop = () => {
+    const wasHolding = controllerRef.current?.isHolding() ?? false;
     controllerRef.current?.stop();
+    if (wasHolding) {
+      setHolding(false);
+      onHoldCancel();
+    }
   };
 
-  const label = completed ? "Workout logged" : busy ? "Logging..." : "Hold to log workout";
+  const label = completed ? "Session locked" : busy ? "Banking..." : holding ? "Charging..." : "Hold to bank today";
 
   return (
     <button
-      className={completed ? "hold-tile completed" : "hold-tile"}
+      className={[
+        "hold-tile",
+        completed ? "completed" : "",
+        holding ? "holding" : "",
+        rewardClass
+      ]
+        .filter(Boolean)
+        .join(" ")}
       type="button"
       disabled={disabled || completed || busy}
       onPointerDown={start}
@@ -62,9 +88,11 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
       onPointerLeave={stop}
     >
       <span className="hold-progress" style={{ transform: `scaleX(${completed ? 1 : progress})` }} />
+      <span className="hold-ring" style={{ "--hold-progress": `${Math.round((completed ? 1 : progress) * 100)}%` } as React.CSSProperties} />
+      <span className="hold-shockwave" aria-hidden="true" />
       <span className="hold-icon">{completed ? <Check /> : <Dumbbell />}</span>
       <span className="hold-label">{label}</span>
-      <span className="hold-caption">{completed ? "Today is already banked." : "Hold 1.5 seconds"}</span>
+      <span className="hold-caption">{completed ? "Today is already banked." : "Hold 0.7 seconds"}</span>
     </button>
   );
 }

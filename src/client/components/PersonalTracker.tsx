@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Crosshair, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getDeterministicQuote } from "../../content/quotes.js";
 import { compareIsoDates, formatShortRange } from "../../shared/date.js";
@@ -8,6 +8,7 @@ import { ConfirmRemove } from "./ConfirmRemove";
 import { HoldToLogTile } from "./HoldToLogTile";
 import { MuteToggle } from "./MuteToggle";
 import { PersonalCalendar } from "./WorkoutCalendar";
+import { ProgressSegments } from "./ProgressSegments";
 import { WeekStrip } from "./WeekStrip";
 
 interface PersonalTrackerProps {
@@ -15,10 +16,13 @@ interface PersonalTrackerProps {
   userSlug: UserSlug;
   muted: boolean;
   busy: boolean;
+  rewardClass: string;
   onMuteChange: (muted: boolean) => void;
   onNavigate: (viewer: ViewerSlug) => void;
   onLog: (date: string, source: "hold" | "backfill") => Promise<void>;
   onRemove: (date: string) => Promise<void>;
+  onHoldStart: () => void;
+  onHoldCancel: () => void;
 }
 
 export function PersonalTracker({
@@ -26,10 +30,13 @@ export function PersonalTracker({
   userSlug,
   muted,
   busy,
+  rewardClass,
   onMuteChange,
   onNavigate,
   onLog,
-  onRemove
+  onRemove,
+  onHoldStart,
+  onHoldCancel
 }: PersonalTrackerProps) {
   const [confirmDate, setConfirmDate] = useState<string | null>(null);
   const count = state.counts[userSlug].week;
@@ -42,34 +49,53 @@ export function PersonalTracker({
     [count, state.week.start, tone.quoteContext, userSlug]
   );
 
+  const cappedCount = Math.min(count, target);
+
   return (
-    <main className={`screen personal tone-${tone.accent}`}>
-      <header className="top-bar">
-        <button className="name-button" type="button" onClick={() => onNavigate(userSlug === "doug" ? "rosie" : "doug")}>
-          {user?.displayName ?? userSlug}
-          <ChevronDown aria-hidden="true" />
-        </button>
-        <MuteToggle muted={muted} onChange={onMuteChange} />
+    <main className={`screen personal tone-${tone.accent} intensity-${tone.intensity}`}>
+      <header className="mission-header">
+        <div>
+          <button className="name-button" type="button" onClick={() => onNavigate(userSlug === "doug" ? "rosie" : "doug")}>
+            {user?.displayName ?? userSlug}
+            <ChevronDown aria-hidden="true" />
+          </button>
+          <p className="range-label">{formatShortRange(state.week.start, state.week.end)}</p>
+        </div>
+        <div className="header-actions">
+          <p>Gym target // {target} per week</p>
+          <MuteToggle muted={muted} onChange={onMuteChange} />
+        </div>
       </header>
 
-      <section className="hero-panel">
-        <p className="section-label">This week</p>
-        <p className="range-label">{formatShortRange(state.week.start, state.week.end)}</p>
+      <section className="mission-hero" aria-live="polite">
+        <div className="hero-grid" aria-hidden="true" />
+        <p className="mission-status">
+          <Crosshair aria-hidden="true" />
+          {tone.headline}
+        </p>
         <div className="progress-readout">
-          <span>{Math.min(count, target)}</span>
+          <span>{cappedCount}</span>
           <small>/ {target}</small>
         </div>
+        <ProgressSegments value={count} target={target} />
         <p className="progress-copy">{tone.subcopy}</p>
       </section>
 
       <section className="primary-action">
         <p className="today-label">Today: {state.today}</p>
-        <HoldToLogTile completed={todayDone} disabled={busy} onComplete={() => onLog(state.today, "hold")} />
+        <HoldToLogTile
+          completed={todayDone}
+          disabled={busy}
+          rewardClass={rewardClass}
+          onComplete={() => onLog(state.today, "hold")}
+          onHoldStart={onHoldStart}
+          onHoldCancel={onHoldCancel}
+        />
       </section>
 
-      <section className="status-panel">
-        <h1>{tone.headline}</h1>
-        <p>{quote}</p>
+      <section className="quote-card">
+        <p className="section-label">Mission prompt</p>
+        <blockquote>{quote}</blockquote>
       </section>
 
       <section className="section">
@@ -89,7 +115,7 @@ export function PersonalTracker({
       <section className="section">
         <div className="section-heading">
           <h2>{state.month.label}</h2>
-          <span>Hold dates to backfill</span>
+          <span>Hold date to bank session</span>
         </div>
         <PersonalCalendar
           days={state.month.days}
@@ -102,12 +128,14 @@ export function PersonalTracker({
             }
           }}
           onRemoveRequest={setConfirmDate}
+          onHoldStart={onHoldStart}
+          onHoldCancel={onHoldCancel}
         />
       </section>
 
       <section className="couple-link">
         <button type="button" onClick={() => onNavigate("couple")}>
-          Couple view
+          Household objective
           <span>{state.counts.couple.week} / {state.counts.couple.target}</span>
         </button>
       </section>

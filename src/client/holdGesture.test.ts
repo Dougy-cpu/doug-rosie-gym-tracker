@@ -11,6 +11,10 @@ describe("hold gesture controller", () => {
     assert.equal(CALENDAR_HOLD_DURATION_MS, HOLD_TO_LOG_DURATION_MS);
   });
 
+  it("uses a 700ms hold for the Stage 2 tactical logging interaction", () => {
+    assert.equal(HOLD_TO_LOG_DURATION_MS, 700);
+  });
+
   it("does not complete when released before the hold duration", async () => {
     let completed = 0;
     let progress = 0;

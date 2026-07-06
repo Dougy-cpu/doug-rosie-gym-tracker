@@ -36,8 +36,8 @@ export function getProgressTone(count: number, scope: ProgressScope) {
     return {
       quoteContext: "individual-complete" as const,
       intensity: "complete" as const,
-      headline: "Weekly Target Complete",
-      subcopy: "Four banked. Week handled.",
+      headline: "Objective Complete",
+      subcopy: "Four banked. Week locked.",
       accent: "gold" as const
     };
   }
@@ -46,8 +46,8 @@ export function getProgressTone(count: number, scope: ProgressScope) {
     return {
       quoteContext: "one-more" as const,
       intensity: "pressure" as const,
-      headline: "One More",
-      subcopy: "Finish the week.",
+      headline: "Target In Range",
+      subcopy: "One more. Do not waste the setup.",
       accent: "red" as const
     };
   }
@@ -75,7 +75,7 @@ export function getProgressTone(count: number, scope: ProgressScope) {
   return {
     quoteContext: "idle" as const,
     intensity: "idle" as const,
-    headline: "Target Waiting",
+    headline: "Mission Open",
     subcopy: "The week does not care about your mood.",
     accent: "neutral" as const
   };

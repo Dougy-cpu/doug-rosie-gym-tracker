@@ -1,4 +1,4 @@
-import { ChevronLeft, Heart } from "lucide-react";
+import { ChevronLeft, Heart, ShieldCheck } from "lucide-react";
 import { useMemo } from "react";
 import { getDeterministicQuote } from "../../content/quotes.js";
 import { formatShortRange } from "../../shared/date.js";
@@ -6,6 +6,7 @@ import { getProgressTone } from "../../shared/progress.js";
 import type { TrackerState, ViewerSlug } from "../../shared/types.js";
 import { MuteToggle } from "./MuteToggle";
 import { CoupleCalendar } from "./WorkoutCalendar";
+import { ProgressSegments } from "./ProgressSegments";
 import { WeekStrip } from "./WeekStrip";
 
 interface CoupleTrackerProps {
@@ -25,34 +26,42 @@ export function CoupleTracker({ state, muted, onMuteChange, onNavigate }: Couple
   );
 
   return (
-    <main className={`screen couple tone-${tone.accent}`}>
-      <header className="top-bar">
+    <main className={`screen couple tone-${tone.accent} intensity-${tone.intensity}`}>
+      <header className="mission-header">
         <button className="icon-button" type="button" aria-label="Back to Doug" onClick={() => onNavigate("doug")}>
           <ChevronLeft />
         </button>
         <div className="title-lockup">
           <Heart aria-hidden="true" />
           <span>Couple</span>
+          <p>{formatShortRange(state.week.start, state.week.end)}</p>
         </div>
-        <MuteToggle muted={muted} onChange={onMuteChange} />
+        <div className="header-actions">
+          <p>Household target // 8 per week</p>
+          <MuteToggle muted={muted} onChange={onMuteChange} />
+        </div>
       </header>
 
-      <section className="hero-panel couple-hero">
-        <p className="section-label">This week</p>
-        <p className="range-label">{formatShortRange(state.week.start, state.week.end)}</p>
+      <section className="mission-hero couple-hero">
+        <div className="hero-grid" aria-hidden="true" />
+        <p className="mission-status">
+          <ShieldCheck aria-hidden="true" />
+          {tone.headline}
+        </p>
         <div className="progress-readout">
           <span>{Math.min(count, target)}</span>
           <small>/ {target}</small>
         </div>
+        <ProgressSegments value={count} target={target} className="couple-segments" />
         <div className="couple-bars" aria-label="Doug and Rosie weekly progress">
           <ProgressMini label="Doug" value={state.counts.doug.week} target={state.counts.doug.target} />
           <ProgressMini label="Rosie" value={state.counts.rosie.week} target={state.counts.rosie.target} />
         </div>
       </section>
 
-      <section className="status-panel couple-status">
-        <h1>{tone.headline}</h1>
-        <p>{quote}</p>
+      <section className="quote-card couple-status">
+        <p className="section-label">Household prompt</p>
+        <blockquote>{quote}</blockquote>
       </section>
 
       <section className="section">

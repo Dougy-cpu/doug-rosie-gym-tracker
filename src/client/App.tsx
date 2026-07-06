@@ -4,21 +4,23 @@ import { BottomNav } from "./components/BottomNav";
 import { AchievementOverlay } from "./components/AchievementOverlay";
 import { CoupleTracker } from "./components/CoupleTracker";
 import { PersonalTracker } from "./components/PersonalTracker";
+import { SoundLab } from "./components/SoundLab";
+import { getAchievementFeedback, getWorkoutFeedback } from "./rewardFeedback";
+import { isTrackerRoute, validAppRoutes, type AppRoute } from "./routes";
 import { useFeedback } from "./useFeedback";
 import type { AchievementEvent, TrackerState, UserSlug, ViewerSlug } from "../shared/types.js";
 
-const validRoutes = new Set<ViewerSlug>(["doug", "rosie", "couple"]);
-
 export function App() {
-  const [route, setRoute] = useState<ViewerSlug>(() => getRouteFromPath());
+  const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath());
   const [state, setState] = useState<TrackerState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rewardClass, setRewardClass] = useState("reward-none");
   const [achievementQueue, setAchievementQueue] = useState<AchievementEvent[]>([]);
   const [activeAchievement, setActiveAchievement] = useState<AchievementEvent | null>(null);
-  const feedback = useFeedback();
+  const { muted, setMuted, unlocked, unlock, play, vibrate } = useFeedback();
 
-  const viewerUser = route === "couple" ? null : route;
+  const viewerUser: UserSlug | null = route === "doug" || route === "rosie" ? route : null;
 
   const enqueueAchievements = useCallback((events: AchievementEvent[]) => {
     setAchievementQueue((current) => {
@@ -42,6 +44,12 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!isTrackerRoute(route)) {
+      setBusy(false);
+      setError(null);
+      return;
+    }
+
     setBusy(true);
     refresh(route)
       .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Unable to load tracker."))
@@ -53,15 +61,24 @@ export function App() {
       const [next, ...remaining] = achievementQueue;
       setActiveAchievement(next);
       setAchievementQueue(remaining);
-      void feedback.play(next.eventType === "couple_week_complete" ? "complete" : "success");
-      feedback.vibrate(next.eventType === "couple_week_complete" ? [80, 60, 120] : 60);
+      const nextFeedback = getAchievementFeedback(next.eventType);
+      void play(nextFeedback.sound);
+      vibrate(nextFeedback.haptic);
     }
-  }, [activeAchievement, achievementQueue, feedback]);
+  }, [activeAchievement, achievementQueue, play, vibrate]);
 
-  const navigate = useCallback((viewer: ViewerSlug) => {
+  const navigate = useCallback((viewer: AppRoute) => {
     window.history.pushState({}, "", `/${viewer}`);
     setRoute(viewer);
   }, []);
+
+  const playHoldStart = useCallback(() => {
+    void play("hold-charge");
+  }, [play]);
+
+  const playHoldCancel = useCallback(() => {
+    void play("hold-cancel");
+  }, [play]);
 
   const handleLog = useCallback(
     async (date: string, source: "hold" | "backfill") => {
@@ -72,19 +89,25 @@ export function App() {
       setBusy(true);
       setError(null);
       try {
-        await feedback.unlock();
+        await unlock();
         const result = await logWorkout(viewerUser, date, source);
         setState(result.state);
         enqueueAchievements(result.state.pendingAchievements);
-        void feedback.play(result.created ? "success" : "tap");
-        feedback.vibrate(result.created ? 50 : 20);
+        const nextFeedback = getWorkoutFeedback({
+          countAfter: result.state.counts[viewerUser].week,
+          created: result.created
+        });
+        setRewardClass(nextFeedback.rewardClass);
+        window.setTimeout(() => setRewardClass("reward-none"), 1400);
+        void play(nextFeedback.sound);
+        vibrate(nextFeedback.haptic);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Could not log workout.");
       } finally {
         setBusy(false);
       }
     },
-    [enqueueAchievements, feedback, viewerUser]
+    [enqueueAchievements, play, unlock, vibrate, viewerUser]
   );
 
   const handleRemove = useCallback(
@@ -98,15 +121,15 @@ export function App() {
       try {
         const nextState = await removeWorkout(viewerUser, date);
         setState(nextState);
-        void feedback.play("tap");
-        feedback.vibrate(25);
+        void play("tap");
+        vibrate(25);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Could not remove workout.");
       } finally {
         setBusy(false);
       }
     },
-    [feedback, viewerUser]
+    [play, vibrate, viewerUser]
   );
 
   const dismissAchievement = useCallback(async () => {
@@ -125,6 +148,20 @@ export function App() {
   }, [activeAchievement, refresh, viewerUser]);
 
   const content = useMemo(() => {
+    if (route === "sound-lab") {
+      return (
+        <SoundLab
+          muted={muted}
+          unlocked={unlocked}
+          onMuteChange={setMuted}
+          onNavigate={navigate}
+          onUnlock={() => void unlock()}
+          onPlay={(sound) => void play(sound)}
+          onVibrate={vibrate}
+        />
+      );
+    }
+
     if (error) {
       return <SetupState message={error} onRetry={() => void refresh(route)} />;
     }
@@ -134,22 +171,43 @@ export function App() {
     }
 
     if (route === "couple") {
-      return <CoupleTracker state={state} muted={feedback.muted} onMuteChange={feedback.setMuted} onNavigate={navigate} />;
+      return <CoupleTracker state={state} muted={muted} onMuteChange={setMuted} onNavigate={navigate} />;
     }
 
     return (
       <PersonalTracker
         state={state}
         userSlug={route}
-        muted={feedback.muted}
+        muted={muted}
         busy={busy}
-        onMuteChange={feedback.setMuted}
+        rewardClass={rewardClass}
+        onMuteChange={setMuted}
         onNavigate={navigate}
         onLog={handleLog}
         onRemove={handleRemove}
+        onHoldStart={playHoldStart}
+        onHoldCancel={playHoldCancel}
       />
     );
-  }, [busy, error, feedback.muted, feedback.setMuted, handleLog, handleRemove, navigate, refresh, route, state]);
+  }, [
+    busy,
+    error,
+    handleLog,
+    handleRemove,
+    navigate,
+    playHoldCancel,
+    playHoldStart,
+    refresh,
+    rewardClass,
+    route,
+    muted,
+    play,
+    setMuted,
+    state,
+    unlock,
+    unlocked,
+    vibrate
+  ]);
 
   return (
     <div className="app-shell">
@@ -184,7 +242,7 @@ function SetupState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-function getRouteFromPath(): ViewerSlug {
-  const segment = window.location.pathname.split("/").filter(Boolean)[0] as ViewerSlug | undefined;
-  return segment && validRoutes.has(segment) ? segment : "doug";
+function getRouteFromPath(): AppRoute {
+  const segment = window.location.pathname.split("/").filter(Boolean)[0] as AppRoute | undefined;
+  return segment && validAppRoutes.has(segment) ? segment : "doug";
 }
