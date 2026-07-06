@@ -12,6 +12,13 @@ interface HoldToLogTileProps {
 }
 
 export const HOLD_TO_LOG_DURATION_MS = 700;
+type HoldTileClickEvent = Pick<React.MouseEvent<HTMLButtonElement>, "preventDefault" | "stopPropagation">;
+
+export function cancelHoldTileClickActivation(event: HoldTileClickEvent, stopHolding: () => void) {
+  event.preventDefault();
+  event.stopPropagation();
+  stopHolding();
+}
 
 export function HoldToLogTile({
   completed,
@@ -82,10 +89,13 @@ export function HoldToLogTile({
         .join(" ")}
       type="button"
       disabled={disabled || completed || busy}
+      onClick={(event) => cancelHoldTileClickActivation(event, stop)}
       onPointerDown={start}
       onPointerUp={stop}
       onPointerCancel={stop}
       onPointerLeave={stop}
+      onLostPointerCapture={stop}
+      onBlur={stop}
     >
       <span className="hold-progress" style={{ transform: `scaleX(${completed ? 1 : progress})` }} />
       <span className="hold-ring" style={{ "--hold-progress": `${Math.round((completed ? 1 : progress) * 100)}%` } as React.CSSProperties} />

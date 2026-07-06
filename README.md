@@ -7,6 +7,7 @@ Private mobile-first gym habit tracker for Doug and Rosie.
 - `/doug`
 - `/rosie`
 - `/couple`
+- `/sound-lab`
 
 ## Local Setup
 

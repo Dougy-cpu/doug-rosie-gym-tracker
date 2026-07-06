@@ -4,7 +4,7 @@
 
 This is a private mobile-first React + Vite app with a TypeScript Node/Express backend.
 
-- Client routes: `/doug`, `/rosie`, `/couple`.
+- Client routes: `/doug`, `/rosie`, `/couple`, `/sound-lab`.
 - API routes live under `/api`.
 - The Express server serves Vite middleware in development and the built client from `dist/client` in production.
 - Shared date/progress types and helpers live in `src/shared`.
@@ -68,13 +68,8 @@ Required data constraints are in the database:
 
 Week logic uses Europe/London calendar dates. Weeks start Sunday and end Saturday.
 
-## Stage 1 Notes
+## Stage 2 Notes
 
-Stage 1 focuses on app structure, persistence, routes, mobile layout, hold-to-log behavior, backfill/removal flow, achievement state, basic overlays, PWA manifest/service worker, and sound/haptic structure.
+Stage 2 adds the dark tactical mobile UI, reward-heavy progress states, 700ms hold interactions for today's tile and calendar backfill, richer 4/4 and 8/8 achievement overlays, original Web Audio cues, haptic patterns, and the `/sound-lab` testing route.
 
-Stage 2 should improve:
-
-- richer achievement animation and sound design
-- more polished visual effects around 1/4, 2/4, 3/4, 4/4, and 8/8
-- optional replay/history for achievements
-- deeper mobile device testing once deployed on Replit
+The app still requires a real PostgreSQL `DATABASE_URL`; do not add local file or browser-only workout storage as a fallback.
