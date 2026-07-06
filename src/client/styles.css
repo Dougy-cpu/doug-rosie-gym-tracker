@@ -483,14 +483,17 @@ button:focus-visible {
   transform: translate(-50%, -50%) scale(0);
 }
 
+.reward-daily .hold-shockwave,
 .reward-first .hold-shockwave,
 .reward-momentum .hold-shockwave,
 .reward-pressure .hold-shockwave,
 .reward-complete .hold-shockwave,
+.lab-reward-card.reward-daily .hold-shockwave,
 .lab-reward-card.reward-first .hold-shockwave {
   animation: shockwave 760ms ease-out;
 }
 
+.reward-daily,
 .reward-first,
 .reward-momentum,
 .reward-pressure,

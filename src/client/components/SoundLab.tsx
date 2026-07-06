@@ -87,7 +87,7 @@ export function SoundLab({
         <span className="hold-shockwave" aria-hidden="true" />
         <HeartPulse aria-hidden="true" />
         <strong>Daily animation test</strong>
-        <button type="button" onClick={() => triggerReward("reward-first", "first", [30, 30, 70])}>
+        <button type="button" onClick={() => triggerReward("reward-daily", "daily", [20, 30, 40])}>
           Trigger reward burst
         </button>
       </section>
