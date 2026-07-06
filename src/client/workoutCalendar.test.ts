@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -32,5 +33,11 @@ describe("PersonalCalendar", () => {
 
     assert.equal(holdCalendarButtonCount, 2);
     assert.match(markup, /data-calendar-action="remove"/);
+  });
+
+  it("cancels normal click activation on hold-controlled calendar dates", () => {
+    const source = readFileSync(new URL("./components/WorkoutCalendar.tsx", import.meta.url), "utf8");
+
+    assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
   });
 });

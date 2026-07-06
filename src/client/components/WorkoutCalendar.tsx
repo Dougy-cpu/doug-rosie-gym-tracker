@@ -127,7 +127,10 @@ function HoldCalendarDayButton({
       data-calendar-action={action}
       type="button"
       disabled={disabled}
-      onClick={(event) => event.preventDefault()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       onPointerDown={start}
       onPointerUp={stop}
       onPointerCancel={stop}
