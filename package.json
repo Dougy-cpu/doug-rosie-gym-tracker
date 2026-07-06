@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server/index.ts",
     "build": "vite build && tsc -p tsconfig.server.json",
     "start": "node dist/server/server/index.js",
-    "replit": "vite build && tsc -p tsconfig.server.json && node dist/server/server/index.js",
+    "replit": "vite build && tsc -p tsconfig.server.json && tsx dist/server/server/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "node --import tsx --test src/**/*.test.ts"
   },
