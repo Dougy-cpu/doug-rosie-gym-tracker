@@ -45,25 +45,16 @@ export function PersonalCalendar({
         const future = compareIsoDates(day.isoDate, today) > 0;
         const className = getDayClass(day, today, complete, future);
 
-        return complete ? (
-          <button
-            className={className}
-            type="button"
-            key={day.isoDate}
-            disabled={future}
-            onClick={() => onRemoveRequest(day.isoDate)}
-          >
-            <span>{day.dayOfMonth}</span>
-            <Check aria-hidden="true" />
-          </button>
-        ) : (
+        return (
           <HoldCalendarDayButton
+            action={complete ? "remove" : "add"}
             className={className}
+            completed={complete}
             date={day.isoDate}
             dayOfMonth={day.dayOfMonth}
             disabled={future}
             key={day.isoDate}
-            onComplete={onAdd}
+            onComplete={complete ? onRemoveRequest : onAdd}
             onHoldStart={onHoldStart}
             onHoldCancel={onHoldCancel}
           />
@@ -74,7 +65,9 @@ export function PersonalCalendar({
 }
 
 function HoldCalendarDayButton({
+  action,
   className,
+  completed,
   date,
   dayOfMonth,
   disabled,
@@ -82,7 +75,9 @@ function HoldCalendarDayButton({
   onHoldStart,
   onHoldCancel
 }: {
+  action: "add" | "remove";
   className: string;
+  completed: boolean;
   date: string;
   dayOfMonth: number;
   disabled: boolean;
@@ -127,7 +122,9 @@ function HoldCalendarDayButton({
 
   return (
     <button
-      className={`${className} hold-calendar-day`}
+      aria-label={`${action === "remove" ? "Hold to remove" : "Hold to add"} ${date}`}
+      className={`${className} hold-calendar-day ${action === "remove" ? "calendar-remove-hold" : ""}`}
+      data-calendar-action={action}
       type="button"
       disabled={disabled}
       onClick={(event) => event.preventDefault()}
@@ -138,6 +135,7 @@ function HoldCalendarDayButton({
     >
       <span className="calendar-hold-progress" style={{ transform: `scaleX(${progress})` }} />
       <span>{dayOfMonth}</span>
+      {completed ? <Check aria-hidden="true" /> : null}
     </button>
   );
 }
