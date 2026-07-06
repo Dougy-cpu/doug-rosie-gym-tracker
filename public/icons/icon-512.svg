@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Gym Tracker">
+  <rect width="512" height="512" rx="112" fill="#050505"/>
+  <rect x="72" y="72" width="368" height="368" rx="74" fill="#10100f" stroke="#ffc928" stroke-width="16"/>
+  <path d="M133 274h48v-37h-48v37Zm198 0h48v-37h-48v37Zm-139 27h128v-90H192v90Zm-40 21h37V190h-37v132Zm171 0h37V190h-37v132Z" fill="#ffc928"/>
+</svg>
