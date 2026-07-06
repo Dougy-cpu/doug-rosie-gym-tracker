@@ -89,7 +89,7 @@ export function PersonalTracker({
       <section className="section">
         <div className="section-heading">
           <h2>{state.month.label}</h2>
-          <span>Tap past dates to backfill</span>
+          <span>Hold dates to backfill</span>
         </div>
         <PersonalCalendar
           days={state.month.days}

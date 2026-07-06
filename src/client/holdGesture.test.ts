@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { CALENDAR_HOLD_DURATION_MS } from "./components/WorkoutCalendar.js";
+import { HOLD_TO_LOG_DURATION_MS } from "./components/HoldToLogTile.js";
 import { createHoldGestureController } from "./holdGesture.js";
 
 type FrameCallback = () => void | Promise<void>;
 
 describe("hold gesture controller", () => {
+  it("uses the same hold duration for calendar backfill and today's tile", () => {
+    assert.equal(CALENDAR_HOLD_DURATION_MS, HOLD_TO_LOG_DURATION_MS);
+  });
+
   it("does not complete when released before the hold duration", async () => {
     let completed = 0;
     let progress = 0;

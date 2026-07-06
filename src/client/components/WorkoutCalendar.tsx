@@ -4,6 +4,7 @@ import { compareIsoDates } from "../../shared/date.js";
 import type { CalendarDay } from "../../shared/date.js";
 import type { UserSlug } from "../../shared/types.js";
 import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
+import { HOLD_TO_LOG_DURATION_MS } from "./HoldToLogTile";
 
 interface PersonalCalendarProps {
   days: CalendarDay[];
@@ -21,7 +22,7 @@ interface CoupleCalendarProps {
 }
 
 const labels = ["S", "M", "T", "W", "T", "F", "S"];
-const calendarHoldDurationMs = 900;
+export const CALENDAR_HOLD_DURATION_MS = HOLD_TO_LOG_DURATION_MS;
 
 export function PersonalCalendar({
   days,
@@ -95,7 +96,7 @@ function HoldCalendarDayButton({
 
     event.currentTarget.setPointerCapture(event.pointerId);
     controllerRef.current = createHoldGestureController({
-      durationMs: calendarHoldDurationMs,
+      durationMs: CALENDAR_HOLD_DURATION_MS,
       getNow: () => performance.now(),
       onProgress: setProgress,
       requestFrame: (callback) => window.requestAnimationFrame(callback),

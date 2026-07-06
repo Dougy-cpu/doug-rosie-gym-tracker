@@ -8,7 +8,7 @@ interface HoldToLogTileProps {
   onComplete: () => Promise<void>;
 }
 
-const holdDurationMs = 1500;
+export const HOLD_TO_LOG_DURATION_MS = 1500;
 
 export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTileProps) {
   const [progress, setProgress] = useState(0);
@@ -28,7 +28,7 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
 
     event.currentTarget.setPointerCapture(event.pointerId);
     controllerRef.current = createHoldGestureController({
-      durationMs: holdDurationMs,
+      durationMs: HOLD_TO_LOG_DURATION_MS,
       getNow: () => performance.now(),
       onProgress: setProgress,
       requestFrame: (callback) => window.requestAnimationFrame(callback),
