@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { getDeterministicQuote, quoteBanks } from "./quotes.js";
 
 describe("quote helpers", () => {
@@ -6,11 +7,11 @@ describe("quote helpers", () => {
     const first = getDeterministicQuote("momentum", "doug-2026-07-06");
     const second = getDeterministicQuote("momentum", "doug-2026-07-06");
 
-    expect(first).toBe(second);
-    expect(quoteBanks.momentum).toContain(first);
+    assert.equal(first, second);
+    assert.equal(quoteBanks.momentum.includes(first), true);
   });
 
   it("uses different banks for personal and couple completion", () => {
-    expect(quoteBanks["individual-complete"]).not.toEqual(quoteBanks["couple-complete"]);
+    assert.notDeepEqual(quoteBanks["individual-complete"], quoteBanks["couple-complete"]);
   });
 });

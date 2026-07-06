@@ -1,19 +1,23 @@
-import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { getProgressTone } from "./progress.js";
 
 describe("progress tone", () => {
   it("maps personal progress counts to the expected quote contexts", () => {
-    expect(getProgressTone(0, "personal").quoteContext).toBe("idle");
-    expect(getProgressTone(1, "personal").quoteContext).toBe("first-workout");
-    expect(getProgressTone(2, "personal").quoteContext).toBe("momentum");
-    expect(getProgressTone(3, "personal").quoteContext).toBe("one-more");
-    expect(getProgressTone(4, "personal").quoteContext).toBe("individual-complete");
+    assert.equal(getProgressTone(0, "personal").quoteContext, "idle");
+    assert.equal(getProgressTone(1, "personal").quoteContext, "first-workout");
+    assert.equal(getProgressTone(2, "personal").quoteContext, "momentum");
+    assert.equal(getProgressTone(3, "personal").quoteContext, "one-more");
+    assert.equal(getProgressTone(4, "personal").quoteContext, "individual-complete");
   });
 
   it("caps visual intensity when counts exceed target", () => {
-    expect(getProgressTone(9, "couple")).toMatchObject({
+    assert.deepEqual(getProgressTone(9, "couple"), {
       quoteContext: "couple-complete",
-      intensity: "complete"
+      intensity: "complete",
+      headline: "Couple Week Complete",
+      subcopy: "Household objective complete.",
+      accent: "gold"
     });
   });
 });
