@@ -25,6 +25,13 @@ interface CoupleCalendarProps {
 
 const labels = ["S", "M", "T", "W", "T", "F", "S"];
 export const CALENDAR_HOLD_DURATION_MS = HOLD_TO_LOG_DURATION_MS;
+type CalendarClickEvent = Pick<React.MouseEvent<HTMLButtonElement>, "preventDefault" | "stopPropagation">;
+
+export function cancelCalendarClickActivation(event: CalendarClickEvent, stopHolding: () => void) {
+  event.preventDefault();
+  event.stopPropagation();
+  stopHolding();
+}
 
 export function PersonalCalendar({
   days,
@@ -127,14 +134,13 @@ function HoldCalendarDayButton({
       data-calendar-action={action}
       type="button"
       disabled={disabled}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
+      onClick={(event) => cancelCalendarClickActivation(event, stop)}
       onPointerDown={start}
       onPointerUp={stop}
       onPointerCancel={stop}
       onPointerLeave={stop}
+      onLostPointerCapture={stop}
+      onBlur={stop}
     >
       <span className="calendar-hold-progress" style={{ transform: `scaleX(${progress})` }} />
       <span>{dayOfMonth}</span>

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PersonalCalendar } from "./components/WorkoutCalendar.js";
+import { cancelCalendarClickActivation, PersonalCalendar } from "./components/WorkoutCalendar.js";
 import type { CalendarDay } from "../shared/date.js";
 
 const days: CalendarDay[] = [
@@ -39,5 +39,29 @@ describe("PersonalCalendar", () => {
     const source = readFileSync(new URL("./components/WorkoutCalendar.tsx", import.meta.url), "utf8");
 
     assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
+  });
+
+  it("uses click as a final cancellation gate when pointer release is missed", () => {
+    let prevented = 0;
+    let propagationStopped = 0;
+    let holdStopped = 0;
+
+    cancelCalendarClickActivation(
+      {
+        preventDefault: () => {
+          prevented += 1;
+        },
+        stopPropagation: () => {
+          propagationStopped += 1;
+        }
+      } as Pick<React.MouseEvent<HTMLButtonElement>, "preventDefault" | "stopPropagation">,
+      () => {
+        holdStopped += 1;
+      }
+    );
+
+    assert.equal(prevented, 1);
+    assert.equal(propagationStopped, 1);
+    assert.equal(holdStopped, 1);
   });
 });

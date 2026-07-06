@@ -26,14 +26,15 @@ export function useFeedback() {
     }
 
     if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContextConstructor();
+      audioContextRef.current = createAudioContextSafely(AudioContextConstructor);
     }
 
-    if (audioContextRef.current.state === "suspended") {
-      await audioContextRef.current.resume();
+    if (!audioContextRef.current) {
+      setUnlocked(false);
+      return;
     }
 
-    setUnlocked(audioContextRef.current.state === "running");
+    setUnlocked(await resumeAudioContextSafely(audioContextRef.current));
   }, [muted]);
 
   const play = useCallback(
@@ -42,13 +43,23 @@ export function useFeedback() {
         return;
       }
 
-      await unlock();
+      try {
+        await unlock();
+      } catch {
+        return;
+      }
+
       const context = audioContextRef.current;
       if (!context) {
         return;
       }
 
-      playSound(context, kind);
+      try {
+        playSound(context, kind);
+      } catch {
+        audioContextRef.current = null;
+        setUnlocked(false);
+      }
     },
     [muted, unlock]
   );
@@ -64,6 +75,26 @@ export function useFeedback() {
   }, []);
 
   return { muted, setMuted, unlocked, unlock, play, vibrate };
+}
+
+export function createAudioContextSafely(AudioContextConstructor: typeof AudioContext): AudioContext | null {
+  try {
+    return new AudioContextConstructor();
+  } catch {
+    return null;
+  }
+}
+
+export async function resumeAudioContextSafely(context: AudioContext): Promise<boolean> {
+  try {
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
+    return context.state === "running";
+  } catch {
+    return false;
+  }
 }
 
 function playSound(context: AudioContext, kind: FeedbackSound) {
