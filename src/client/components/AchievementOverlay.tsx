@@ -15,9 +15,9 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
   const [canDismiss, setCanDismiss] = useState(false);
   const isCouple = achievement.eventType === "couple_week_complete";
   const viewerName = state.users.find((user) => user.slug === viewer)?.displayName ?? "You";
-  const title = isCouple ? "Couple Week Complete" : "Weekly Target Complete";
+  const title = isCouple ? "COUPLE WEEK COMPLETE" : "WEEKLY TARGET COMPLETE";
   const metric = isCouple ? "8 / 8" : "4 / 4";
-  const copy = isCouple ? "Household objective complete" : `${viewerName} locked the weekly target`;
+  const copy = isCouple ? "HOUSEHOLD OBJECTIVE COMPLETE" : `${viewerName.toUpperCase()} LOCKED THE WEEKLY TARGET`;
   const quote = getDeterministicQuote(
     isCouple ? "couple-complete" : "individual-complete",
     `${achievement.eventType}-${achievement.weekStartDate}-${viewer}`
@@ -53,20 +53,33 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
         <strong>{metric}</strong>
 
         {isCouple ? (
-          <div className="achievement-duo" aria-label="Doug and Rosie complete">
-            <AchievementPerson label="Doug" value={state.counts.doug.week} />
-            <ShieldCheck aria-hidden="true" />
-            <AchievementPerson label="Rosie" value={state.counts.rosie.week} />
-          </div>
+          <>
+            <CoupleSlamMeter />
+            <div className="achievement-duo" aria-label="Doug and Rosie complete">
+              <AchievementPerson label="Doug" value={state.counts.doug.week} />
+              <ShieldCheck aria-hidden="true" />
+              <AchievementPerson label="Rosie" value={state.counts.rosie.week} />
+            </div>
+          </>
         ) : (
           <ProgressSegments value={4} target={4} className="achievement-segments" />
         )}
 
         <p>{quote}</p>
         <button type="button" disabled={!canDismiss} onClick={onDismiss}>
-          {canDismiss ? "Ridiculous behaviour" : "Locking..."}
+          {canDismiss ? "CONTINUE" : "LOCKING..."}
         </button>
       </section>
+    </div>
+  );
+}
+
+function CoupleSlamMeter() {
+  return (
+    <div className="achievement-slam-meter" aria-label="Doug and Rosie bars slam together into 8 out of 8">
+      <span className="slam-bar doug-slam" />
+      <strong>8 / 8</strong>
+      <span className="slam-bar rosie-slam" />
     </div>
   );
 }
