@@ -11,10 +11,10 @@ const holdDurationMs = 1500;
 
 export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTileProps) {
   const [progress, setProgress] = useState(0);
-  const [holding, setHolding] = useState(false);
   const [busy, setBusy] = useState(false);
   const frameRef = useRef<number | null>(null);
   const startedAtRef = useRef(0);
+  const isHoldingRef = useRef(false);
 
   const cancelFrame = () => {
     if (frameRef.current !== null) {
@@ -25,6 +25,7 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
 
   useEffect(() => {
     return () => {
+      isHoldingRef.current = false;
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
       }
@@ -37,31 +38,35 @@ export function HoldToLogTile({ completed, disabled, onComplete }: HoldToLogTile
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    isHoldingRef.current = true;
     startedAtRef.current = performance.now();
-    setHolding(true);
     tick();
   };
 
   const stop = () => {
-    if (!holding) {
+    if (!isHoldingRef.current) {
       return;
     }
 
+    isHoldingRef.current = false;
     cancelFrame();
-    setHolding(false);
     setProgress(0);
   };
 
   const tick = () => {
     cancelFrame();
     frameRef.current = window.requestAnimationFrame(async () => {
+      if (!isHoldingRef.current) {
+        return;
+      }
+
       const elapsed = performance.now() - startedAtRef.current;
       const nextProgress = Math.min(1, elapsed / holdDurationMs);
       setProgress(nextProgress);
 
       if (nextProgress >= 1) {
+        isHoldingRef.current = false;
         cancelFrame();
-        setHolding(false);
         setBusy(true);
         try {
           await onComplete();
