@@ -10,6 +10,7 @@ import { MuteToggle } from "./MuteToggle";
 import { PersonalCalendar } from "./WorkoutCalendar";
 import { ProgressSegments } from "./ProgressSegments";
 import { WeekStrip } from "./WeekStrip";
+import type { RewardExplosionOrigin } from "../rewardExplosion";
 
 interface PersonalTrackerProps {
   state: TrackerState;
@@ -25,6 +26,7 @@ interface PersonalTrackerProps {
   onHoldStart: () => void;
   onHoldCancel: () => void;
   onHoldPressurePulse: (milestone: HoldPressureMilestone) => void;
+  onRewardOriginChange: (origin: RewardExplosionOrigin | null) => void;
 }
 
 export function PersonalTracker({
@@ -40,7 +42,8 @@ export function PersonalTracker({
   onRemove,
   onHoldStart,
   onHoldCancel,
-  onHoldPressurePulse
+  onHoldPressurePulse,
+  onRewardOriginChange
 }: PersonalTrackerProps) {
   const [confirmDate, setConfirmDate] = useState<string | null>(null);
   const count = state.counts[userSlug].week;
@@ -103,6 +106,7 @@ export function PersonalTracker({
           onHoldStart={onHoldStart}
           onHoldCancel={onHoldCancel}
           onHoldPressurePulse={onHoldPressurePulse}
+          onRewardOriginChange={onRewardOriginChange}
         />
       </section>
 

@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
-import { feedbackSoundAssets, getAchievementFeedback, getWorkoutFeedback } from "./rewardFeedback.js";
+import {
+  feedbackSoundAssets,
+  getAchievementFeedback,
+  getWorkoutFeedback,
+  LEVEL_UP_TRACK_DURATION_MS,
+  LEVEL_UP_TRACK_SRC
+} from "./rewardFeedback.js";
 
 describe("reward feedback catalog", () => {
   it("uses progressive sound and haptic patterns for workout milestones", () => {
@@ -27,7 +33,7 @@ describe("reward feedback catalog", () => {
       sound: "weekly-complete",
       haptic: [60, 40, 120, 50, 180],
       rewardClass: "reward-complete",
-      durationMs: 6426
+      durationMs: LEVEL_UP_TRACK_DURATION_MS
     });
   });
 
@@ -60,7 +66,7 @@ describe("reward feedback catalog", () => {
     assert.deepEqual(getAchievementFeedback("couple_week_complete"), {
       sound: "couple-complete",
       haptic: [70, 40, 130, 60, 200, 80, 240],
-      durationMs: 30067
+      durationMs: LEVEL_UP_TRACK_DURATION_MS
     });
   });
 
@@ -68,11 +74,11 @@ describe("reward feedback catalog", () => {
     assert.deepEqual(getAchievementFeedback("individual_week_complete"), {
       sound: "individual-complete",
       haptic: [60, 40, 120, 50, 180],
-      durationMs: 11154
+      durationMs: LEVEL_UP_TRACK_DURATION_MS
     });
   });
 
-  it("maps every uploaded sound effect to a workout completion action", () => {
+  it("uses uploaded milestone cues and the level-up track for major completion actions", () => {
     assert.deepEqual(
       Object.fromEntries(Object.entries(feedbackSoundAssets).map(([sound, asset]) => [sound, asset.sourceFile])),
       {
@@ -81,13 +87,16 @@ describe("reward feedback catalog", () => {
         first: "call_of_duty.mp3",
         momentum: "battlefield_4_rank_up.mp3",
         "one-more": "call-of-duty-modern-warfare-2-level-up-track-2.mp3",
-        "weekly-complete": "warzone-level-up.mp3",
-        "individual-complete": "untitled_nscJ47E.mp3",
-        "couple-complete": "at_dooms_2016_gate.mp3"
+        "weekly-complete": "level-up-track.mp3",
+        "individual-complete": "level-up-track.mp3",
+        "couple-complete": "level-up-track.mp3"
       }
     );
 
-    assert.equal(feedbackSoundAssets["couple-complete"]?.src, "/audio/rewards/couple-week-complete.mp3");
+    assert.equal(LEVEL_UP_TRACK_SRC, "/sfx/level-up-track.mp3");
+    assert.equal(feedbackSoundAssets["weekly-complete"]?.src, LEVEL_UP_TRACK_SRC);
+    assert.equal(feedbackSoundAssets["individual-complete"]?.src, LEVEL_UP_TRACK_SRC);
+    assert.equal(feedbackSoundAssets["couple-complete"]?.src, LEVEL_UP_TRACK_SRC);
   });
 
   it("keeps reward animation durations matched to the MP3 frame lengths", async () => {

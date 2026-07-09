@@ -60,4 +60,11 @@ describe("HoldToLogTile", () => {
     assert.match(source, /hold-crack-overlay/);
     assert.match(source, /hold-shatter-burst/);
   });
+
+  it("captures the tile center as the reward explosion origin", async () => {
+    const source = await readFile(holdTileUrl, "utf8");
+
+    assert.match(source, /getOriginFromElement\(event\.currentTarget\)/);
+    assert.match(source, /onRewardOriginChange/);
+  });
 });

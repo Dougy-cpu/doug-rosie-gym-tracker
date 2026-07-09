@@ -505,13 +505,33 @@ button:focus-visible {
   left: var(--crack-left);
   top: var(--crack-top);
   width: var(--crack-length);
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), rgba(255, 146, 49, 0.92), transparent);
-  box-shadow: 0 0 12px rgba(255, 146, 49, 0.7);
+  box-shadow: 0 0 16px rgba(255, 146, 49, 0.9), 0 0 34px rgba(255, 201, 40, 0.36);
   transform: translate(-50%, -50%) rotate(var(--crack-rotate));
   animation: crackFlicker 320ms steps(2, end) infinite;
   animation-delay: var(--crack-delay);
+}
+
+.hold-crack-overlay i::before,
+.hold-crack-overlay i::after {
+  content: "";
+  position: absolute;
+  left: 58%;
+  top: 50%;
+  width: calc(var(--crack-length) * 0.44);
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.78), rgba(255, 122, 31, 0.72), transparent);
+  box-shadow: 0 0 12px rgba(255, 122, 31, 0.72);
+  transform-origin: left center;
+  transform: rotate(42deg);
+}
+
+.hold-crack-overlay i::after {
+  left: 42%;
+  transform: rotate(-54deg);
 }
 
 .hold-spark-leak {
@@ -554,6 +574,24 @@ button:focus-visible {
 .shattering .hold-shatter-burst i {
   animation: shardRupture 900ms cubic-bezier(0.16, 0.76, 0.22, 1) both;
   animation-delay: var(--shard-delay);
+}
+
+.shattering .hold-icon,
+.shattering .hold-label,
+.shattering .hold-caption {
+  animation: tileContentRupture 720ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.shattering::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.72), transparent 22%),
+    radial-gradient(circle at 50% 48%, rgba(255, 122, 31, 0.52), transparent 58%);
+  opacity: 0;
+  animation: tileRuptureFlash 620ms ease-out both;
 }
 
 .hold-icon {
@@ -633,6 +671,63 @@ button:focus-visible {
 
 .app-shell.reward-complete {
   animation: heavyScreenShake 480ms linear;
+}
+
+.app-shell.explosion-shake-normal {
+  animation: explosionShakeNormal var(--explosion-shake-duration, 300ms) linear;
+}
+
+.app-shell.explosion-shake-heavy {
+  animation: explosionShakeHeavy var(--explosion-shake-duration, 760ms) linear;
+}
+
+.app-shell.explosion-shake-ridiculous {
+  animation: explosionShakeRidiculous var(--explosion-shake-duration, 1150ms) linear;
+}
+
+.reward-explosion-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: screen;
+}
+
+.reward-explosion-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.reward-trigger-point {
+  position: fixed;
+  width: 34px;
+  height: 34px;
+  z-index: 96;
+  border: 2px solid #fff6b4;
+  border-radius: 999px;
+  box-shadow: 0 0 20px rgba(255, 201, 40, 0.85), inset 0 0 14px rgba(255, 122, 31, 0.5);
+  transform: translate(-50%, -50%);
+  animation: triggerPointPulse 520ms ease-out infinite;
+}
+
+.reward-trigger-point::before,
+.reward-trigger-point::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 46px;
+  height: 2px;
+  background: #fff6b4;
+  box-shadow: 0 0 14px rgba(255, 201, 40, 0.9);
+  transform: translate(-50%, -50%);
+}
+
+.reward-trigger-point::after {
+  width: 2px;
+  height: 46px;
 }
 
 .quote-card,
@@ -1322,6 +1417,76 @@ button.calendar-day {
   accent-color: var(--accent);
 }
 
+.lab-control-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.lab-segmented-control {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 7px;
+}
+
+.lab-segmented-control > span,
+.lab-toggle-control span,
+.lab-rupture-surface small {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.lab-segmented-control > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  gap: 6px;
+}
+
+.lab-segmented-control button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.34);
+  color: var(--text);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.lab-segmented-control button.selected {
+  border-color: rgba(var(--accent-rgb), 0.85);
+  background: rgba(var(--accent-rgb), 0.18);
+  color: var(--accent);
+  box-shadow: 0 0 24px rgba(var(--accent-rgb), 0.2), inset 0 0 18px rgba(var(--accent-rgb), 0.12);
+}
+
+.lab-toggle-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lab-toggle-control {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.lab-toggle-control input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .lab-reward-card {
   min-height: 150px;
   position: relative;
@@ -1349,6 +1514,26 @@ button.calendar-day {
 .lab-reward-card button {
   width: 100%;
   background: rgba(var(--accent-rgb), 0.14);
+}
+
+.lab-rupture-surface {
+  min-height: 190px;
+  border-color: rgba(255, 122, 31, 0.66);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 122, 31, 0.26), transparent 8rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 62, 24, 0.05)),
+    #100c09;
+}
+
+.lab-rupture-surface::before {
+  content: "";
+  position: absolute;
+  inset: -28%;
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 201, 40, 0.08) 0 2px, transparent 2px 15px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 58%);
+  opacity: calc(0.18 + var(--hold-progress-ratio, 0) * 0.7);
+  transform: rotate(8deg);
 }
 
 .lab-grid {
@@ -1383,6 +1568,35 @@ button.calendar-day {
   color: var(--muted);
   font-size: 0.65rem;
   text-align: center;
+}
+
+.explosion-test-grid {
+  grid-template-columns: 1fr;
+}
+
+.lab-test-button.mega-test {
+  min-height: 128px;
+  border-color: rgba(var(--accent-rgb), 0.36);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb), 0.14), transparent 5.5rem),
+    rgba(0, 0, 0, 0.36);
+  box-shadow: inset 0 0 28px rgba(var(--accent-rgb), 0.08);
+}
+
+.lab-test-button.mega-test span {
+  max-width: 14rem;
+  font-family: var(--hard-font);
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
+.lab-test-button.couple-mega-test,
+.lab-test-button.stress-test {
+  border-color: rgba(255, 201, 40, 0.64);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 201, 40, 0.22), transparent 6.5rem),
+    linear-gradient(135deg, rgba(255, 122, 31, 0.12), rgba(0, 0, 0, 0.36)),
+    rgba(0, 0, 0, 0.36);
 }
 
 .centered-state {
@@ -1479,6 +1693,23 @@ button.calendar-day {
   }
 }
 
+@keyframes triggerPointPulse {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.82); }
+  100% { opacity: 0.28; transform: translate(-50%, -50%) scale(1.22); }
+}
+
+@keyframes tileRuptureFlash {
+  0% { opacity: 0; transform: scale(0.92); }
+  16% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.36); }
+}
+
+@keyframes tileContentRupture {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); filter: brightness(1); }
+  26% { opacity: 1; transform: translate3d(3px, -4px, 0) rotate(-4deg) scale(1.08); filter: brightness(1.8); }
+  100% { opacity: 0; transform: translate3d(-18px, 22px, 0) rotate(14deg) scale(0.72); filter: brightness(0.7); }
+}
+
 @keyframes screenShake {
   0%, 100% { transform: translate3d(0, 0, 0); }
   20% { transform: translate3d(2px, -1px, 0); }
@@ -1506,6 +1737,48 @@ button.calendar-day {
   50% { transform: translate3d(3px, -2px, 0); }
   60% { transform: translate3d(-3px, 2px, 0); }
   80% { transform: translate3d(2px, 1px, 0); }
+}
+
+@keyframes explosionShakeNormal {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  8% { transform: translate3d(4px, -3px, 0) rotate(-0.25deg); }
+  16% { transform: translate3d(-5px, 3px, 0) rotate(0.3deg); }
+  24% { transform: translate3d(5px, 2px, 0) rotate(-0.2deg); }
+  32% { transform: translate3d(-3px, -3px, 0) rotate(0.2deg); }
+  40% { transform: translate3d(4px, 3px, 0) rotate(-0.16deg); }
+  48% { transform: translate3d(-4px, 2px, 0) rotate(0.18deg); }
+  56% { transform: translate3d(3px, -2px, 0) rotate(-0.12deg); }
+  70% { transform: translate3d(-2px, 2px, 0) rotate(0.1deg); }
+  86% { transform: translate3d(1px, -1px, 0) rotate(-0.05deg); }
+}
+
+@keyframes explosionShakeHeavy {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  6% { transform: translate3d(8px, -6px, 0) rotate(-0.5deg); }
+  12% { transform: translate3d(-9px, 5px, 0) rotate(0.46deg); }
+  18% { transform: translate3d(10px, 4px, 0) rotate(-0.42deg); }
+  24% { transform: translate3d(-7px, -7px, 0) rotate(0.36deg); }
+  30% { transform: translate3d(8px, 6px, 0) rotate(-0.34deg); }
+  38% { transform: translate3d(-8px, 3px, 0) rotate(0.28deg); }
+  46% { transform: translate3d(6px, -4px, 0) rotate(-0.22deg); }
+  56% { transform: translate3d(-5px, 4px, 0) rotate(0.18deg); }
+  68% { transform: translate3d(4px, -3px, 0) rotate(-0.12deg); }
+  82% { transform: translate3d(-2px, 2px, 0) rotate(0.08deg); }
+}
+
+@keyframes explosionShakeRidiculous {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  4% { transform: translate3d(13px, -10px, 0) rotate(-0.75deg); }
+  8% { transform: translate3d(-14px, 9px, 0) rotate(0.7deg); }
+  12% { transform: translate3d(15px, 7px, 0) rotate(-0.62deg); }
+  16% { transform: translate3d(-12px, -11px, 0) rotate(0.58deg); }
+  22% { transform: translate3d(14px, 10px, 0) rotate(-0.52deg); }
+  28% { transform: translate3d(-13px, 5px, 0) rotate(0.46deg); }
+  34% { transform: translate3d(11px, -8px, 0) rotate(-0.4deg); }
+  42% { transform: translate3d(-10px, 8px, 0) rotate(0.34deg); }
+  52% { transform: translate3d(8px, -6px, 0) rotate(-0.26deg); }
+  66% { transform: translate3d(-6px, 5px, 0) rotate(0.18deg); }
+  82% { transform: translate3d(3px, -3px, 0) rotate(-0.1deg); }
 }
 
 @keyframes todayPulse {

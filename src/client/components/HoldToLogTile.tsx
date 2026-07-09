@@ -1,6 +1,7 @@
 import { Dumbbell, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
+import { getOriginFromElement, type RewardExplosionOrigin } from "../rewardExplosion";
 
 interface HoldToLogTileProps {
   completed: boolean;
@@ -11,6 +12,7 @@ interface HoldToLogTileProps {
   onHoldStart: () => void;
   onHoldCancel: () => void;
   onHoldPressurePulse: (milestone: HoldPressureMilestone) => void;
+  onRewardOriginChange: (origin: RewardExplosionOrigin | null) => void;
 }
 
 export const HOLD_TO_CONFIRM_MS = 3000;
@@ -25,10 +27,16 @@ const crackLines = [
   { left: 57, top: 46, rotate: 52, length: 42 },
   { left: 37, top: 57, rotate: 18, length: 30 },
   { left: 63, top: 58, rotate: -22, length: 34 },
-  { left: 51, top: 68, rotate: 76, length: 38 }
+  { left: 51, top: 68, rotate: 76, length: 38 },
+  { left: 31, top: 36, rotate: 12, length: 44 },
+  { left: 69, top: 38, rotate: -36, length: 48 },
+  { left: 35, top: 72, rotate: -18, length: 42 },
+  { left: 66, top: 75, rotate: 28, length: 38 },
+  { left: 46, top: 82, rotate: -62, length: 34 },
+  { left: 55, top: 18, rotate: 64, length: 30 }
 ] as const;
 
-const shardFragments = Array.from({ length: 64 }, (_, index) => ({
+const shardFragments = Array.from({ length: 120 }, (_, index) => ({
   id: index,
   angle: (index * 137.5) % 360,
   distance: 72 + (index % 8) * 15,
@@ -50,7 +58,8 @@ export function HoldToLogTile({
   onComplete,
   onHoldStart,
   onHoldCancel,
-  onHoldPressurePulse
+  onHoldPressurePulse,
+  onRewardOriginChange
 }: HoldToLogTileProps) {
   const [progress, setProgress] = useState(0);
   const [holding, setHolding] = useState(false);
@@ -94,6 +103,7 @@ export function HoldToLogTile({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    onRewardOriginChange(getOriginFromElement(event.currentTarget));
     resetMilestones();
     setHolding(true);
     onHoldStart();
@@ -253,7 +263,7 @@ function SparkLeak({ active, progress }: { active: boolean; progress: number }) 
       aria-hidden="true"
       style={{ "--spark-intensity": active ? Math.min(1, progress * 1.35) : 0 } as React.CSSProperties}
     >
-      {Array.from({ length: 18 }, (_, index) => (
+      {Array.from({ length: 36 }, (_, index) => (
         <i key={index} style={{ "--spark-index": index } as React.CSSProperties} />
       ))}
     </span>

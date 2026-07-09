@@ -5,7 +5,16 @@ import { BottomNav } from "./components/BottomNav";
 import { AchievementOverlay } from "./components/AchievementOverlay";
 import { CoupleTracker } from "./components/CoupleTracker";
 import { PersonalTracker } from "./components/PersonalTracker";
+import { RewardExplosionCanvas } from "./components/RewardExplosionCanvas";
 import { SoundLab } from "./components/SoundLab";
+import {
+  defaultRewardExplosionControls,
+  getExplosionKindForReward,
+  type RewardExplosionKind,
+  type RewardExplosionOrigin,
+  type RewardExplosionRequest,
+  type RewardExplosionControls
+} from "./rewardExplosion";
 import { getAchievementFeedback, getFeedbackDurationMs, getWorkoutFeedback } from "./rewardFeedback";
 import { isTrackerRoute, validAppRoutes, type AppRoute } from "./routes";
 import { useFeedback } from "./useFeedback";
@@ -18,6 +27,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [rewardClass, setRewardClass] = useState("reward-none");
   const [rewardDurationMs, setRewardDurationMs] = useState(() => getFeedbackDurationMs("tap"));
+  const [rewardOrigin, setRewardOrigin] = useState<RewardExplosionOrigin | null>(null);
+  const [explosionRequest, setExplosionRequest] = useState<RewardExplosionRequest | null>(null);
   const [achievementQueue, setAchievementQueue] = useState<AchievementEvent[]>([]);
   const [activeAchievement, setActiveAchievement] = useState<AchievementEvent | null>(null);
   const { muted, setMuted, unlocked, unlock, play, vibrate } = useFeedback();
@@ -27,6 +38,18 @@ export function App() {
   const enqueueAchievements = useCallback((events: AchievementEvent[]) => {
     setAchievementQueue((current) => mergeAchievementQueue(current, events, activeAchievement));
   }, [activeAchievement]);
+
+  const triggerRewardExplosion = useCallback(
+    (kind: RewardExplosionKind, origin: RewardExplosionOrigin | null = rewardOrigin, controls: RewardExplosionControls = defaultRewardExplosionControls) => {
+      setExplosionRequest({
+        id: Date.now(),
+        kind,
+        origin,
+        controls
+      });
+    },
+    [rewardOrigin]
+  );
 
   const refresh = useCallback(async (viewer: ViewerSlug) => {
     setError(null);
@@ -62,8 +85,9 @@ export function App() {
       const nextFeedback = getAchievementFeedback(next.eventType);
       void play(nextFeedback.sound);
       vibrate(nextFeedback.haptic);
+      triggerRewardExplosion(next.eventType === "couple_week_complete" ? "couple" : "weekly", null);
     }
-  }, [activeAchievement, achievementQueue, play, vibrate]);
+  }, [activeAchievement, achievementQueue, play, triggerRewardExplosion, vibrate]);
 
   const navigate = useCallback((viewer: AppRoute) => {
     window.history.pushState({}, "", `/${viewer}`);
@@ -107,6 +131,11 @@ export function App() {
         const pendingAchievementFeedback = result.state.pendingAchievements[0]
           ? getAchievementFeedback(result.state.pendingAchievements[0].eventType)
           : null;
+        const explosionKind = getExplosionKindForReward({
+          countAfter: result.state.counts[viewerUser].week,
+          created: result.created,
+          achievement: result.state.pendingAchievements[0] ?? null
+        });
         setRewardClass(nextFeedback.rewardClass);
         setRewardDurationMs(pendingAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
         window.setTimeout(() => setRewardClass("reward-none"), pendingAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
@@ -114,6 +143,9 @@ export function App() {
         if (!pendingAchievementFeedback) {
           void play(nextFeedback.sound);
           vibrate(nextFeedback.haptic);
+          if (explosionKind) {
+            triggerRewardExplosion(explosionKind);
+          }
         }
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Could not log workout.");
@@ -121,7 +153,7 @@ export function App() {
         setBusy(false);
       }
     },
-    [enqueueAchievements, play, unlock, vibrate, viewerUser]
+    [enqueueAchievements, play, triggerRewardExplosion, unlock, vibrate, viewerUser]
   );
 
   const handleRemove = useCallback(
@@ -172,6 +204,7 @@ export function App() {
           onUnlock={() => void unlock()}
           onPlay={(sound) => void play(sound)}
           onVibrate={vibrate}
+          onExplode={triggerRewardExplosion}
         />
       );
     }
@@ -203,6 +236,7 @@ export function App() {
         onHoldStart={playHoldStart}
         onHoldCancel={playHoldCancel}
         onHoldPressurePulse={playHoldPressurePulse}
+        onRewardOriginChange={setRewardOrigin}
       />
     );
   }, [
@@ -234,6 +268,7 @@ export function App() {
       {activeAchievement && state && viewerUser ? (
         <AchievementOverlay achievement={activeAchievement} state={state} viewer={viewerUser} onDismiss={dismissAchievement} />
       ) : null}
+      <RewardExplosionCanvas request={explosionRequest} onComplete={() => setExplosionRequest(null)} />
     </div>
   );
 }

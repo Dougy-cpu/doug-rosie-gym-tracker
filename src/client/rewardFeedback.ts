@@ -22,6 +22,9 @@ export interface FeedbackSoundAsset {
   assignment: string;
 }
 
+export const LEVEL_UP_TRACK_SRC = "/sfx/level-up-track.mp3";
+export const LEVEL_UP_TRACK_DURATION_MS = 6269;
+
 export const feedbackSoundAssets: Partial<Record<FeedbackSound, FeedbackSoundAsset>> = {
   daily: {
     src: "/audio/rewards/daily-session-locked.mp3",
@@ -54,21 +57,21 @@ export const feedbackSoundAssets: Partial<Record<FeedbackSound, FeedbackSoundAss
     assignment: "Third workout, one more needed"
   },
   "weekly-complete": {
-    src: "/audio/rewards/weekly-target-locked.mp3",
-    durationMs: 6426,
-    sourceFile: "warzone-level-up.mp3",
+    src: LEVEL_UP_TRACK_SRC,
+    durationMs: LEVEL_UP_TRACK_DURATION_MS,
+    sourceFile: "level-up-track.mp3",
     assignment: "Fourth workout weekly target"
   },
   "individual-complete": {
-    src: "/audio/rewards/individual-week-complete.mp3",
-    durationMs: 11154,
-    sourceFile: "untitled_nscJ47E.mp3",
+    src: LEVEL_UP_TRACK_SRC,
+    durationMs: LEVEL_UP_TRACK_DURATION_MS,
+    sourceFile: "level-up-track.mp3",
     assignment: "Individual 4/4 achievement"
   },
   "couple-complete": {
-    src: "/audio/rewards/couple-week-complete.mp3",
-    durationMs: 30067,
-    sourceFile: "at_dooms_2016_gate.mp3",
+    src: LEVEL_UP_TRACK_SRC,
+    durationMs: LEVEL_UP_TRACK_DURATION_MS,
+    sourceFile: "level-up-track.mp3",
     assignment: "Couple 8/8 achievement"
   }
 };
