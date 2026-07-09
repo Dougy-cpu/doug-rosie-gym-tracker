@@ -18,17 +18,59 @@ export type HapticPattern = number | number[];
 export interface FeedbackSoundAsset {
   src: string;
   durationMs: number;
+  sourceFile: string;
+  assignment: string;
 }
 
 export const feedbackSoundAssets: Partial<Record<FeedbackSound, FeedbackSoundAsset>> = {
-  daily: { src: "/audio/rewards/daily-session-locked.mp3", durationMs: 2879 },
-  backfill: { src: "/audio/rewards/backfill-session-locked.mp3", durationMs: 2916 },
-  first: { src: "/audio/rewards/first-inertia-broken.mp3", durationMs: 3004 },
-  momentum: { src: "/audio/rewards/momentum-two-banked.mp3", durationMs: 3111 },
-  "one-more": { src: "/audio/rewards/target-in-range.mp3", durationMs: 6200 },
-  "weekly-complete": { src: "/audio/rewards/weekly-target-locked.mp3", durationMs: 6362 },
-  "individual-complete": { src: "/audio/rewards/individual-week-complete.mp3", durationMs: 11102 },
-  "couple-complete": { src: "/audio/rewards/couple-week-complete.mp3", durationMs: 30000 }
+  daily: {
+    src: "/audio/rewards/daily-session-locked.mp3",
+    durationMs: 2952,
+    sourceFile: "battlefield_6_sting.mp3",
+    assignment: "Today's workout completion"
+  },
+  backfill: {
+    src: "/audio/rewards/backfill-session-locked.mp3",
+    durationMs: 2978,
+    sourceFile: "warzone_victory.mp3",
+    assignment: "Calendar backfill completion"
+  },
+  first: {
+    src: "/audio/rewards/first-inertia-broken.mp3",
+    durationMs: 3056,
+    sourceFile: "call_of_duty.mp3",
+    assignment: "First workout of the week"
+  },
+  momentum: {
+    src: "/audio/rewards/momentum-two-banked.mp3",
+    durationMs: 3187,
+    sourceFile: "battlefield_4_rank_up.mp3",
+    assignment: "Second workout momentum"
+  },
+  "one-more": {
+    src: "/audio/rewards/target-in-range.mp3",
+    durationMs: 6269,
+    sourceFile: "call-of-duty-modern-warfare-2-level-up-track-2.mp3",
+    assignment: "Third workout, one more needed"
+  },
+  "weekly-complete": {
+    src: "/audio/rewards/weekly-target-locked.mp3",
+    durationMs: 6426,
+    sourceFile: "warzone-level-up.mp3",
+    assignment: "Fourth workout weekly target"
+  },
+  "individual-complete": {
+    src: "/audio/rewards/individual-week-complete.mp3",
+    durationMs: 11154,
+    sourceFile: "untitled_nscJ47E.mp3",
+    assignment: "Individual 4/4 achievement"
+  },
+  "couple-complete": {
+    src: "/audio/rewards/couple-week-complete.mp3",
+    durationMs: 30067,
+    sourceFile: "at_dooms_2016_gate.mp3",
+    assignment: "Couple 8/8 achievement"
+  }
 };
 
 const synthesizedSoundDurations: Partial<Record<FeedbackSound, number>> = {
@@ -64,34 +106,34 @@ export function getWorkoutFeedback({
   }
 
   if (countAfter >= 4) {
-    return withDuration({ sound: "weekly-complete", haptic: [40, 40, 80, 40, 120], rewardClass: "reward-complete" });
+    return withDuration({ sound: "weekly-complete", haptic: [60, 40, 120, 50, 180], rewardClass: "reward-complete" });
   }
 
   if (countAfter === 3) {
-    return withDuration({ sound: "one-more", haptic: [20, 20, 30, 20, 60], rewardClass: "reward-pressure" });
+    return withDuration({ sound: "one-more", haptic: [40, 20, 40, 20, 110], rewardClass: "reward-pressure" });
   }
 
   if (countAfter === 2) {
-    return withDuration({ sound: "momentum", haptic: [20, 30, 40], rewardClass: "reward-momentum" });
+    return withDuration({ sound: "momentum", haptic: [35, 25, 55, 25, 80], rewardClass: "reward-momentum" });
   }
 
   if (countAfter === 1) {
-    return withDuration({ sound: "first", haptic: [30, 30, 70], rewardClass: "reward-first" });
+    return withDuration({ sound: "first", haptic: [45, 30, 90], rewardClass: "reward-first" });
   }
 
   return withDuration({
     sound: source === "backfill" ? "backfill" : "daily",
-    haptic: [20, 30, 40],
+    haptic: [35, 20, 60],
     rewardClass: "reward-daily"
   });
 }
 
 export function getAchievementFeedback(eventType: AchievementEvent["eventType"]): AchievementFeedback {
   if (eventType === "couple_week_complete") {
-    return withDuration({ sound: "couple-complete", haptic: [40, 30, 80, 40, 120, 60, 180] });
+    return withDuration({ sound: "couple-complete", haptic: [70, 40, 130, 60, 200, 80, 240] });
   }
 
-  return withDuration({ sound: "individual-complete", haptic: [40, 40, 80, 40, 120] });
+  return withDuration({ sound: "individual-complete", haptic: [60, 40, 120, 50, 180] });
 }
 
 export function getFeedbackDurationMs(sound: FeedbackSound): number {

@@ -112,7 +112,7 @@ async function playAudioAsset(kind: FeedbackSound, audioElements: Partial<Record
   const audio = audioElements[kind] ?? new Audio(asset.src);
   audioElements[kind] = audio;
   audio.preload = "auto";
-  audio.volume = kind === "couple-complete" ? 0.9 : 0.82;
+  audio.volume = kind === "couple-complete" ? 0.94 : kind === "weekly-complete" || kind === "individual-complete" ? 0.88 : 0.82;
 
   try {
     audio.pause();
@@ -128,59 +128,49 @@ function playSound(context: AudioContext, kind: FeedbackSound) {
   const now = context.currentTime;
 
   if (kind === "tap") {
-    tone(context, now, { start: 210, end: 160, duration: 0.07, type: "square", gain: 0.03 });
+    heavyImpact(context, now, 0.28);
     return;
   }
 
   if (kind === "hold-cancel") {
-    tone(context, now, { start: 180, end: 82, duration: 0.14, type: "sawtooth", gain: 0.035 });
+    heavyImpact(context, now, 0.4);
     return;
   }
 
   if (kind === "hold-charge") {
-    tone(context, now, { start: 95, end: 240, duration: 0.2, type: "sawtooth", gain: 0.035 });
-    tone(context, now + 0.04, { start: 360, end: 520, duration: 0.12, type: "triangle", gain: 0.025 });
+    pressureRumble(context, now, 0.55);
     return;
   }
 
   if (kind === "daily") {
-    impact(context, now, 95, 0.13);
-    tone(context, now + 0.04, { start: 340, end: 720, duration: 0.16, type: "triangle", gain: 0.06 });
+    heavyImpact(context, now, 0.72);
     return;
   }
 
   if (kind === "first") {
-    impact(context, now, 72, 0.18);
-    tone(context, now + 0.03, { start: 180, end: 620, duration: 0.28, type: "sawtooth", gain: 0.055 });
-    tone(context, now + 0.1, { start: 520, end: 880, duration: 0.14, type: "triangle", gain: 0.035 });
+    heavyImpact(context, now, 0.86);
+    pressureRumble(context, now + 0.08, 0.34);
     return;
   }
 
   if (kind === "momentum") {
-    impact(context, now, 88, 0.13);
-    tone(context, now + 0.03, { start: 220, end: 440, duration: 0.12, type: "square", gain: 0.04 });
-    tone(context, now + 0.16, { start: 300, end: 740, duration: 0.16, type: "triangle", gain: 0.045 });
+    heavyImpact(context, now, 0.7);
+    heavyImpact(context, now + 0.16, 0.62);
     return;
   }
 
   if (kind === "one-more") {
-    impact(context, now, 62, 0.16);
-    tone(context, now + 0.04, { start: 420, end: 260, duration: 0.1, type: "sawtooth", gain: 0.05 });
-    tone(context, now + 0.16, { start: 420, end: 760, duration: 0.24, type: "square", gain: 0.045 });
+    pressureRumble(context, now, 0.42);
+    heavyImpact(context, now + 0.12, 0.95);
     return;
   }
 
   if (kind === "weekly-complete") {
-    impact(context, now, 52, 0.22);
-    tone(context, now + 0.04, { start: 180, end: 520, duration: 0.22, type: "sawtooth", gain: 0.06 });
-    tone(context, now + 0.22, { start: 480, end: 1080, duration: 0.32, type: "triangle", gain: 0.045 });
+    ruptureFallback(context, now, 1);
     return;
   }
 
-  impact(context, now, 44, 0.28);
-  tone(context, now + 0.03, { start: 150, end: 420, duration: 0.24, type: "sawtooth", gain: 0.07 });
-  tone(context, now + 0.18, { start: 360, end: 980, duration: 0.34, type: "triangle", gain: 0.055 });
-  tone(context, now + 0.36, { start: 560, end: 1320, duration: 0.28, type: "square", gain: 0.035 });
+  ruptureFallback(context, now, kind === "couple-complete" ? 1.25 : 1.05);
 }
 
 function tone(
@@ -204,4 +194,50 @@ function tone(
 
 function impact(context: AudioContext, startTime: number, frequency: number, duration: number) {
   tone(context, startTime, { start: frequency, end: Math.max(30, frequency * 0.45), duration, type: "sine", gain: 0.09 });
+}
+
+function heavyImpact(context: AudioContext, startTime: number, intensity: number) {
+  impact(context, startTime, 48 + 26 * intensity, 0.18 + 0.08 * intensity);
+  noiseBurst(context, startTime, 0.09 + 0.05 * intensity, 0.035 + 0.035 * intensity);
+}
+
+function pressureRumble(context: AudioContext, startTime: number, intensity: number) {
+  tone(context, startTime, {
+    start: 42,
+    end: 66 + 22 * intensity,
+    duration: 0.34 + 0.16 * intensity,
+    type: "sawtooth",
+    gain: 0.018 + 0.025 * intensity
+  });
+  noiseBurst(context, startTime + 0.04, 0.22 + 0.08 * intensity, 0.018 + 0.018 * intensity);
+}
+
+function ruptureFallback(context: AudioContext, startTime: number, intensity: number) {
+  heavyImpact(context, startTime, intensity);
+  heavyImpact(context, startTime + 0.11, intensity * 0.9);
+  noiseBurst(context, startTime + 0.04, 0.42, 0.09 * intensity);
+}
+
+function noiseBurst(context: AudioContext, startTime: number, duration: number, gainValue: number) {
+  const bufferSize = Math.max(1, Math.floor(context.sampleRate * duration));
+  const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
+  const channel = buffer.getChannelData(0);
+  for (let index = 0; index < bufferSize; index += 1) {
+    channel[index] = (Math.random() * 2 - 1) * (1 - index / bufferSize);
+  }
+
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(700, startTime);
+  filter.frequency.exponentialRampToValueAtTime(120, startTime + duration);
+  gain.gain.setValueAtTime(gainValue, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  source.buffer = buffer;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(context.destination);
+  source.start(startTime);
+  source.stop(startTime + duration + 0.02);
 }

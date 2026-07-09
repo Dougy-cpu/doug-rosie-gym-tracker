@@ -431,6 +431,25 @@ button:focus-visible {
   animation: chargeShake 120ms linear infinite;
 }
 
+.hold-tile.hold-stage-cracking,
+.hold-tile.hold-stage-unstable,
+.hold-tile.hold-stage-final-warning {
+  border-color: rgba(255, 100, 32, 0.9);
+  box-shadow: 0 0 70px rgba(255, 100, 32, 0.42), inset 0 0 54px rgba(var(--accent-rgb), 0.22);
+}
+
+.hold-tile.hold-stage-unstable,
+.hold-tile.hold-stage-final-warning {
+  animation: unstableShake 70ms linear infinite;
+}
+
+.hold-tile.hold-stage-final-warning {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 90, 32, 0.36), transparent 10rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 70, 18, 0.08)),
+    #120806;
+}
+
 .hold-tile.completed {
   border-color: var(--lime);
   box-shadow: 0 0 42px rgba(184, 255, 56, 0.25), inset 0 0 32px rgba(184, 255, 56, 0.12);
@@ -465,10 +484,82 @@ button:focus-visible {
   background: #10100e;
 }
 
+.hold-crack-overlay,
+.hold-spark-leak,
+.hold-shatter-burst {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.hold-crack-overlay {
+  opacity: var(--crack-intensity, 0);
+  mix-blend-mode: screen;
+  transition: opacity 90ms linear;
+}
+
+.hold-crack-overlay i {
+  position: absolute;
+  left: var(--crack-left);
+  top: var(--crack-top);
+  width: var(--crack-length);
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), rgba(255, 146, 49, 0.92), transparent);
+  box-shadow: 0 0 12px rgba(255, 146, 49, 0.7);
+  transform: translate(-50%, -50%) rotate(var(--crack-rotate));
+  animation: crackFlicker 320ms steps(2, end) infinite;
+  animation-delay: var(--crack-delay);
+}
+
+.hold-spark-leak {
+  opacity: var(--spark-intensity, 0);
+}
+
+.hold-spark-leak i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, #fff9c7, var(--gold), transparent);
+  transform: rotate(calc(var(--spark-index) * 20deg)) translateY(calc(-50px - var(--spark-index) * 1px));
+  animation: sparkLeak 520ms linear infinite;
+  animation-delay: calc(var(--spark-index) * -42ms);
+}
+
+.hold-shatter-burst {
+  opacity: 0;
+}
+
+.hold-shatter-burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--shard-size);
+  height: calc(var(--shard-size) * 1.6);
+  border-radius: 2px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), var(--accent), rgba(255, 90, 32, 0.85));
+  box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.62);
+  opacity: 0;
+}
+
+.shattering .hold-shatter-burst {
+  opacity: 1;
+}
+
+.shattering .hold-shatter-burst i {
+  animation: shardRupture 900ms cubic-bezier(0.16, 0.76, 0.22, 1) both;
+  animation-delay: var(--shard-delay);
+}
+
 .hold-icon {
   width: 64px;
   height: 64px;
-  z-index: 2;
+  z-index: 3;
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -482,7 +573,7 @@ button:focus-visible {
 }
 
 .hold-label {
-  z-index: 2;
+  z-index: 3;
   max-width: 15rem;
   font-family: var(--hard-font);
   font-size: 2.15rem;
@@ -491,7 +582,7 @@ button:focus-visible {
 }
 
 .hold-caption {
-  z-index: 2;
+  z-index: 3;
   color: var(--muted);
   text-transform: uppercase;
   font-size: 0.72rem;
@@ -526,6 +617,22 @@ button:focus-visible {
 .reward-pressure,
 .reward-complete {
   animation: rewardPop var(--reward-duration, 620ms) ease-out;
+}
+
+.app-shell.reward-daily {
+  animation: screenShake 160ms linear;
+}
+
+.app-shell.reward-first {
+  animation: screenShake 230ms linear;
+}
+
+.app-shell.reward-pressure {
+  animation: urgentScreenShake 300ms linear;
+}
+
+.app-shell.reward-complete {
+  animation: heavyScreenShake 480ms linear;
 }
 
 .quote-card,
@@ -927,6 +1034,7 @@ button.calendar-day {
 
 .achievement-card.couple {
   border-color: rgba(255, 201, 40, 0.86);
+  box-shadow: 0 0 110px rgba(255, 201, 40, 0.36), var(--shadow);
 }
 
 .achievement-shockwave {
@@ -956,27 +1064,10 @@ button.calendar-day {
   border-radius: 99px;
   background: linear-gradient(180deg, var(--accent), transparent);
   transform-origin: 50% 180px;
+  transform: rotate(var(--particle-angle, 0deg)) translateY(calc(-1 * var(--particle-distance, 60px)));
   animation: particleBurst var(--achievement-duration, 900ms) ease-out both;
+  animation-delay: var(--particle-delay, 0ms);
 }
-
-.particle-field span:nth-child(1) { transform: rotate(0deg) translateY(-60px); }
-.particle-field span:nth-child(2) { transform: rotate(22deg) translateY(-60px); }
-.particle-field span:nth-child(3) { transform: rotate(44deg) translateY(-60px); }
-.particle-field span:nth-child(4) { transform: rotate(66deg) translateY(-60px); }
-.particle-field span:nth-child(5) { transform: rotate(88deg) translateY(-60px); }
-.particle-field span:nth-child(6) { transform: rotate(110deg) translateY(-60px); }
-.particle-field span:nth-child(7) { transform: rotate(132deg) translateY(-60px); }
-.particle-field span:nth-child(8) { transform: rotate(154deg) translateY(-60px); }
-.particle-field span:nth-child(9) { transform: rotate(176deg) translateY(-60px); }
-.particle-field span:nth-child(10) { transform: rotate(198deg) translateY(-60px); }
-.particle-field span:nth-child(11) { transform: rotate(220deg) translateY(-60px); }
-.particle-field span:nth-child(12) { transform: rotate(242deg) translateY(-60px); }
-.particle-field span:nth-child(13) { transform: rotate(264deg) translateY(-60px); }
-.particle-field span:nth-child(14) { transform: rotate(286deg) translateY(-60px); }
-.particle-field span:nth-child(15) { transform: rotate(308deg) translateY(-60px); }
-.particle-field span:nth-child(16) { transform: rotate(330deg) translateY(-60px); }
-.particle-field span:nth-child(17) { transform: rotate(346deg) translateY(-60px); }
-.particle-field span:nth-child(18) { transform: rotate(358deg) translateY(-60px); }
 
 .achievement-burst {
   width: 92px;
@@ -1166,6 +1257,71 @@ button.calendar-day {
   margin-top: 14px;
 }
 
+.asset-status-panel {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid rgba(var(--accent-rgb), 0.38);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 62, 35, 0.12), transparent 9rem),
+    rgba(0, 0, 0, 0.34);
+}
+
+.asset-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asset-status-pill {
+  display: grid;
+  gap: 4px;
+  min-height: 84px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.asset-status-pill span,
+.asset-status-pill small,
+.lab-slider span {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.asset-status-pill strong {
+  color: var(--accent);
+  font-family: var(--hard-font);
+  font-size: 1.18rem;
+  text-transform: uppercase;
+}
+
+.asset-warning {
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 90, 32, 0.56);
+  border-radius: 8px;
+  background: rgba(255, 90, 32, 0.1);
+  color: #ffd3bd;
+  font-weight: 900;
+}
+
+.lab-slider {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.lab-slider input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 .lab-reward-card {
   min-height: 150px;
   position: relative;
@@ -1264,9 +1420,51 @@ button.calendar-day {
   100% { transform: translateX(-1px) scale(0.985); }
 }
 
+@keyframes unstableShake {
+  0% { transform: translate(0, 0) scale(0.982); }
+  25% { transform: translate(2px, -1px) scale(0.982); }
+  50% { transform: translate(-2px, 1px) scale(0.982); }
+  75% { transform: translate(1px, 1px) scale(0.982); }
+  100% { transform: translate(-1px, -1px) scale(0.982); }
+}
+
+@keyframes crackFlicker {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.85); }
+}
+
+@keyframes sparkLeak {
+  0% {
+    opacity: 0;
+    transform: rotate(calc(var(--spark-index) * 20deg)) translateY(-28px) scaleY(0.3);
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--spark-index) * 20deg)) translateY(calc(-72px - var(--spark-index) * 2px)) scaleY(1);
+  }
+}
+
+@keyframes shardRupture {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--shard-angle)) translateY(0) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--shard-angle)) translateY(calc(-1 * var(--shard-distance))) rotate(180deg) scale(1);
+  }
+}
+
 @keyframes rewardPop {
-  0% { transform: scale(0.985); }
-  45% { transform: scale(1.018); }
+  0% { transform: scale(0.965); filter: brightness(1); }
+  14% { transform: scale(1.03); filter: brightness(1.45); }
+  32% { transform: scale(0.99); filter: brightness(1.08); }
   100% { transform: scale(1); }
 }
 
@@ -1279,6 +1477,35 @@ button.calendar-day {
     opacity: 0;
     transform: translate(-50%, -50%) scale(9);
   }
+}
+
+@keyframes screenShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  20% { transform: translate3d(2px, -1px, 0); }
+  40% { transform: translate3d(-2px, 1px, 0); }
+  60% { transform: translate3d(1px, 1px, 0); }
+  80% { transform: translate3d(-1px, -1px, 0); }
+}
+
+@keyframes urgentScreenShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  12% { transform: translate3d(3px, -2px, 0); }
+  24% { transform: translate3d(-3px, 2px, 0); }
+  36% { transform: translate3d(2px, 1px, 0); }
+  48% { transform: translate3d(-2px, -2px, 0); }
+  60% { transform: translate3d(3px, 1px, 0); }
+  72% { transform: translate3d(-3px, -1px, 0); }
+}
+
+@keyframes heavyScreenShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  10% { transform: translate3d(4px, -3px, 0); }
+  20% { transform: translate3d(-5px, 3px, 0); }
+  30% { transform: translate3d(5px, 2px, 0); }
+  40% { transform: translate3d(-4px, -3px, 0); }
+  50% { transform: translate3d(3px, -2px, 0); }
+  60% { transform: translate3d(-3px, 2px, 0); }
+  80% { transform: translate3d(2px, 1px, 0); }
 }
 
 @keyframes todayPulse {

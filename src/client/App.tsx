@@ -72,11 +72,19 @@ export function App() {
 
   const playHoldStart = useCallback(() => {
     void play("hold-charge");
-  }, [play]);
+    vibrate(8);
+  }, [play, vibrate]);
 
   const playHoldCancel = useCallback(() => {
     void play("hold-cancel");
   }, [play]);
+
+  const playHoldPressurePulse = useCallback(
+    (milestone: "pressure-build" | "unstable") => {
+      vibrate(milestone === "pressure-build" ? 14 : [28, 25, 42]);
+    },
+    [vibrate]
+  );
 
   const handleLog = useCallback(
     async (date: string, source: "hold" | "backfill") => {
@@ -194,6 +202,7 @@ export function App() {
         onRemove={handleRemove}
         onHoldStart={playHoldStart}
         onHoldCancel={playHoldCancel}
+        onHoldPressurePulse={playHoldPressurePulse}
       />
     );
   }, [
@@ -203,6 +212,7 @@ export function App() {
     handleRemove,
     navigate,
     playHoldCancel,
+    playHoldPressurePulse,
     playHoldStart,
     refresh,
     rewardClass,
@@ -218,7 +228,7 @@ export function App() {
   ]);
 
   return (
-    <div className="app-shell">
+    <div className={["app-shell", rewardClass !== "reward-none" ? rewardClass : ""].filter(Boolean).join(" ")}>
       {content}
       <BottomNav current={route} onNavigate={navigate} />
       {activeAchievement && state && viewerUser ? (

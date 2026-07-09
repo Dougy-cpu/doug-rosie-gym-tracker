@@ -4,7 +4,7 @@ import { compareIsoDates } from "../../shared/date.js";
 import type { CalendarDay } from "../../shared/date.js";
 import type { UserSlug } from "../../shared/types.js";
 import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
-import { HOLD_TO_LOG_DURATION_MS } from "./HoldToLogTile";
+import { HOLD_TO_CONFIRM_MS } from "./HoldToLogTile";
 
 interface PersonalCalendarProps {
   days: CalendarDay[];
@@ -24,7 +24,7 @@ interface CoupleCalendarProps {
 }
 
 const labels = ["S", "M", "T", "W", "T", "F", "S"];
-export const CALENDAR_HOLD_DURATION_MS = HOLD_TO_LOG_DURATION_MS;
+export const CALENDAR_HOLD_DURATION_MS = HOLD_TO_CONFIRM_MS;
 type CalendarClickEvent = Pick<React.MouseEvent<HTMLButtonElement>, "preventDefault" | "stopPropagation">;
 
 export function cancelCalendarClickActivation(event: CalendarClickEvent, stopHolding: () => void) {

@@ -47,7 +47,8 @@ describe("PersonalTracker", () => {
         onLog: async () => undefined,
         onRemove: async () => undefined,
         onHoldStart: () => undefined,
-        onHoldCancel: () => undefined
+        onHoldCancel: () => undefined,
+        onHoldPressurePulse: () => undefined
       })
     );
 
@@ -69,7 +70,8 @@ describe("PersonalTracker", () => {
         onLog: async () => undefined,
         onRemove: async () => undefined,
         onHoldStart: () => undefined,
-        onHoldCancel: () => undefined
+        onHoldCancel: () => undefined,
+        onHoldPressurePulse: () => undefined
       })
     );
 

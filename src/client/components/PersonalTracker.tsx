@@ -5,7 +5,7 @@ import { compareIsoDates, formatShortRange } from "../../shared/date.js";
 import { getProgressTone } from "../../shared/progress.js";
 import type { TrackerState, UserSlug, ViewerSlug } from "../../shared/types.js";
 import { ConfirmRemove } from "./ConfirmRemove";
-import { HoldToLogTile } from "./HoldToLogTile";
+import { HoldToLogTile, type HoldPressureMilestone } from "./HoldToLogTile";
 import { MuteToggle } from "./MuteToggle";
 import { PersonalCalendar } from "./WorkoutCalendar";
 import { ProgressSegments } from "./ProgressSegments";
@@ -24,6 +24,7 @@ interface PersonalTrackerProps {
   onRemove: (date: string) => Promise<void>;
   onHoldStart: () => void;
   onHoldCancel: () => void;
+  onHoldPressurePulse: (milestone: HoldPressureMilestone) => void;
 }
 
 export function PersonalTracker({
@@ -38,7 +39,8 @@ export function PersonalTracker({
   onLog,
   onRemove,
   onHoldStart,
-  onHoldCancel
+  onHoldCancel,
+  onHoldPressurePulse
 }: PersonalTrackerProps) {
   const [confirmDate, setConfirmDate] = useState<string | null>(null);
   const count = state.counts[userSlug].week;
@@ -100,6 +102,7 @@ export function PersonalTracker({
           onComplete={() => onLog(state.today, "hold")}
           onHoldStart={onHoldStart}
           onHoldCancel={onHoldCancel}
+          onHoldPressurePulse={onHoldPressurePulse}
         />
       </section>
 

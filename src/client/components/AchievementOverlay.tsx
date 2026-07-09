@@ -20,6 +20,7 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
   const metric = isCouple ? "8 / 8" : "4 / 4";
   const copy = isCouple ? "HOUSEHOLD OBJECTIVE COMPLETE" : `${viewerName.toUpperCase()} LOCKED THE WEEKLY TARGET`;
   const durationMs = getAchievementFeedback(achievement.eventType).durationMs;
+  const particleCount = isCouple ? 160 : 96;
   const quote = getDeterministicQuote(
     isCouple ? "couple-complete" : "individual-complete",
     `${achievement.eventType}-${achievement.weekStartDate}-${viewer}`
@@ -43,9 +44,18 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
         style={{ "--achievement-duration": `${durationMs}ms` } as CSSProperties}
       >
         <div className="achievement-shockwave" aria-hidden="true" />
-        <div className="particle-field" aria-hidden="true">
-          {Array.from({ length: isCouple ? 18 : 12 }, (_, index) => (
-            <span key={index} />
+        <div className="particle-field" aria-hidden="true" data-particle-count={particleCount}>
+          {Array.from({ length: particleCount }, (_, index) => (
+            <span
+              key={index}
+              style={
+                {
+                  "--particle-angle": `${(index * 137.5) % 360}deg`,
+                  "--particle-distance": `${isCouple ? 108 + (index % 12) * 10 : 76 + (index % 8) * 8}px`,
+                  "--particle-delay": `${(index % 12) * 18}ms`
+                } as CSSProperties
+              }
+            />
           ))}
         </div>
 
