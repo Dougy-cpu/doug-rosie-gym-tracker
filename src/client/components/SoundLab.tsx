@@ -14,14 +14,16 @@ import {
   type ScreenShakeLevel
 } from "../rewardExplosion";
 import {
-  feedbackSoundAssets,
   getAchievementFeedback,
   getFeedbackDurationMs,
+  getFeedbackSoundEvent,
+  getRewardSoundCandidates,
   getWorkoutFeedback,
-  LEVEL_UP_TRACK_SRC,
+  resolveFeedbackSoundAsset,
   type FeedbackSound,
-  type FeedbackSoundAsset,
-  type HapticPattern
+  type HapticPattern,
+  type ResolvedFeedbackSoundAsset,
+  type RewardSoundAssetCandidate
 } from "../rewardFeedback";
 import { MuteToggle } from "./MuteToggle";
 import { AchievementOverlay } from "./AchievementOverlay";
@@ -46,34 +48,41 @@ const soundTests: Array<{
   haptic: HapticPattern;
   icon: ReactElement;
 }> = [
-  { label: "Daily", detail: "Session locked", sound: "daily", haptic: getWorkoutFeedback({ countAfter: 0, created: true }).haptic, icon: <Bolt /> },
+  { label: "Play level-up-track.mp3", detail: "General fallback track", sound: "level-up-track", haptic: 20, icon: <RadioTower /> },
+  { label: "Play daily workout sound", detail: "Normal daily workout", sound: "daily", haptic: getWorkoutFeedback({ countAfter: 0, created: true }).haptic, icon: <Bolt /> },
   {
-    label: "Calendar",
+    label: "Play calendar backfill sound",
     detail: "Backfill locked",
     sound: "backfill",
     haptic: getWorkoutFeedback({ countAfter: 0, created: true, source: "backfill" }).haptic,
     icon: <BadgeCheck />
   },
-  { label: "First", detail: "Inertia broken", sound: "first", haptic: getWorkoutFeedback({ countAfter: 1, created: true }).haptic, icon: <Zap /> },
+  { label: "Play 1/4 inertia broken sound", detail: "First weekly workout", sound: "first", haptic: getWorkoutFeedback({ countAfter: 1, created: true }).haptic, icon: <Zap /> },
   {
-    label: "Momentum",
-    detail: "Two banked",
+    label: "Play 2/4 momentum sound",
+    detail: "Second weekly workout",
     sound: "momentum",
     haptic: getWorkoutFeedback({ countAfter: 2, created: true }).haptic,
     icon: <Activity />
   },
-  { label: "One more", detail: "Target in range", sound: "one-more", haptic: getWorkoutFeedback({ countAfter: 3, created: true }).haptic, icon: <Flame /> },
+  { label: "Play 3/4 target in range sound", detail: "Third weekly workout", sound: "one-more", haptic: getWorkoutFeedback({ countAfter: 3, created: true }).haptic, icon: <Flame /> },
   {
-    label: "4th",
-    detail: "Weekly locked",
+    label: "Play 4/4 weekly complete sound",
+    detail: "Workout milestone fallback path",
     sound: "weekly-complete",
     haptic: getWorkoutFeedback({ countAfter: 4, created: true }).haptic,
     icon: <BadgeCheck />
   },
-  { label: "4/4", detail: "Individual overlay", sound: "individual-complete", haptic: getAchievementFeedback("individual_week_complete").haptic, icon: <ShieldCheck /> },
   {
-    label: "8/8",
-    detail: "Couple complete",
+    label: "Play 4/4 individual goal sound",
+    detail: "Individual achievement",
+    sound: "individual-complete",
+    haptic: getAchievementFeedback("individual_week_complete").haptic,
+    icon: <ShieldCheck />
+  },
+  {
+    label: "Play 8/8 couple goal sound",
+    detail: "Couple achievement",
     sound: "couple-complete",
     haptic: getAchievementFeedback("couple_week_complete").haptic,
     icon: <ShieldCheck />
@@ -81,9 +90,14 @@ const soundTests: Array<{
 ];
 
 type AssetStatus = "checking" | "loaded" | "missing";
-type AssetStatusMap = Partial<Record<FeedbackSound, AssetStatus>>;
+interface AssetResolutionStatus {
+  status: AssetStatus;
+  asset: ResolvedFeedbackSoundAsset | null;
+}
+
+type AssetStatusMap = Partial<Record<FeedbackSound, AssetResolutionStatus>>;
 const holdConstantLabel = "HOLD_TO_CONFIRM_MS = 3000";
-const uploadedRewardAssets = Object.entries(feedbackSoundAssets) as Array<[FeedbackSound, FeedbackSoundAsset]>;
+const testedSounds = Array.from(new Set(soundTests.map((test) => test.sound)));
 
 export function SoundLab({
   muted,
@@ -116,19 +130,38 @@ export function SoundLab({
     }),
     [flashIntensity, particleIntensity, reducedMotionPreview, screenShake, showTriggerPoint]
   );
+  const soundResolutionEntries = soundTests.map((test) => {
+    const candidates = getRewardSoundCandidates(test.sound);
+    const primary = candidates[0] ?? null;
+    const resolution = assetStatuses[test.sound];
+    const asset = resolution?.asset ?? null;
+
+    return {
+      ...test,
+      eventName: getFeedbackSoundEvent(test.sound) ?? test.sound,
+      expectedPrimaryFile: primary?.sourceFile ?? "synthetic-heavy-impact",
+      candidates,
+      status: resolution?.status ?? "checking",
+      asset
+    };
+  });
+  const missingAssets = soundResolutionEntries.filter((entry) => entry.status === "missing");
+  const loadedCount = soundResolutionEntries.filter((entry) => entry.status === "loaded").length;
+  const levelUpAsset = getResolvedOrDefaultAsset("level-up-track", assetStatuses);
+  const individualAsset = getResolvedOrDefaultAsset("individual-complete", assetStatuses);
+  const coupleAsset = getResolvedOrDefaultAsset("couple-complete", assetStatuses);
+  const goalFallbackWarnings = [individualAsset, coupleAsset].filter(
+    (asset): asset is RewardSoundAssetCandidate | ResolvedFeedbackSoundAsset =>
+      asset?.sourceFile === "level-up-track.mp3" && asset.source === "fallback-specific-missing"
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     Promise.all(
-      uploadedRewardAssets.map(async ([sound, asset]) => {
-        try {
-          const response = await fetch(asset.src, { method: "HEAD" });
-          const contentType = response.headers.get("content-type") ?? "";
-          return [sound, response.ok && contentType.startsWith("audio/") ? "loaded" : "missing"] as const;
-        } catch {
-          return [sound, "missing"] as const;
-        }
+      testedSounds.map(async (sound) => {
+        const asset = await resolveFeedbackSoundAsset(sound);
+        return [sound, { status: asset ? "loaded" : "missing", asset }] as const;
       })
     ).then((results) => {
       if (!cancelled) {
@@ -142,13 +175,13 @@ export function SoundLab({
   }, []);
 
   useEffect(() => {
-    const missingAssets = uploadedRewardAssets.filter(([sound]) => assetStatuses[sound] === "missing");
+    const missingAssets = soundResolutionEntries.filter((entry) => entry.status === "missing");
     if (missingAssets.length === 0) {
       return;
     }
 
     const timerId = window.setTimeout(() => {
-      console.warn(`Missing uploaded reward audio: ${missingAssets.map(([, asset]) => `${asset.sourceFile} (${asset.src})`).join(", ")}`);
+      console.warn(`Missing reward audio: ${missingAssets.map((entry) => `${entry.eventName} (${entry.expectedPrimaryFile})`).join(", ")}`);
     }, 0);
 
     return () => {
@@ -200,12 +233,6 @@ export function SoundLab({
     }, HOLD_TO_CONFIRM_MS);
   };
 
-  const missingAssets = uploadedRewardAssets.filter(([sound]) => assetStatuses[sound] === "missing");
-  const loadedCount = uploadedRewardAssets.filter(([sound]) => assetStatuses[sound] === "loaded").length;
-  const weeklyAsset = feedbackSoundAssets["weekly-complete"];
-  const individualAsset = feedbackSoundAssets["individual-complete"];
-  const coupleAsset = feedbackSoundAssets["couple-complete"];
-
   return (
     <main className="screen sound-lab tone-gold intensity-pressure">
       <header className="mission-header">
@@ -233,27 +260,30 @@ export function SoundLab({
 
       <section className="asset-status-panel">
         <div className="section-heading">
-          <h2>Uploaded reward assets</h2>
+          <h2>Resolved reward assets</h2>
           <span>
-            {loadedCount} / {uploadedRewardAssets.length} loaded / {holdConstantLabel}
+            {loadedCount} / {soundResolutionEntries.length} loaded / {holdConstantLabel}
           </span>
         </div>
         <div className="asset-status-grid">
-          {uploadedRewardAssets.map(([sound, asset]) => (
+          {soundResolutionEntries.map(({ asset, eventName, expectedPrimaryFile, label, sound, status }) => (
             <StatusPill
               key={sound}
-              label={asset.assignment}
-              value={`${assetStatuses[sound] ?? "checking"} / ${asset.durationMs}ms`}
-              detail={`${asset.sourceFile} -> public${asset.src}`}
+              label={label}
+              value={asset ? `${asset.sourceFile} / ${asset.source}` : status}
+              detail={`event ${eventName} / expected ${expectedPrimaryFile} / actual ${asset?.src ?? "synthetic-heavy-impact"}`}
             />
           ))}
-          <StatusPill label="Level-up track" value={LEVEL_UP_TRACK_SRC} detail="Main sound for 4/4 and 8/8" />
           <StatusPill label="8-bit fallback" value="disabled" detail="No chiptune, blips or coin sounds" />
         </div>
+        {goalFallbackWarnings.length > 0 ? (
+          <p className="asset-warning">
+            Warning: {goalFallbackWarnings.map((asset) => asset.assignment).join(", ")} resolved to level-up-track.mp3 because the specific goal file was missing.
+          </p>
+        ) : null}
         {missingAssets.length > 0 ? (
           <p className="asset-warning">
-            Warning: missing uploaded reward audio: {missingAssets.map(([, asset]) => asset.sourceFile).join(", ")}. The app will use heavy fallback impacts until the MP3s are
-            available.
+            Warning: missing reward audio for {missingAssets.map((entry) => entry.eventName).join(", ")}. The app will use heavy fallback impacts until MP3s are available.
           </p>
         ) : null}
       </section>
@@ -374,7 +404,7 @@ export function SoundLab({
           >
             <ShieldCheck />
             <span>Test 4/4 Weekly Complete Explosion</span>
-            <small>{individualAsset?.sourceFile} / 520 sparks / 8 pops</small>
+            <small>{formatAssetSummary(individualAsset)} / 520 sparks / 8 pops</small>
           </button>
           <button
             className="lab-test-button mega-test couple-mega-test"
@@ -390,7 +420,7 @@ export function SoundLab({
           >
             <Sparkles />
             <span>Test 8/8 Couple Mega Explosion</span>
-            <small>{coupleAsset?.sourceFile} / 860 sparks / 12 pops</small>
+            <small>{formatAssetSummary(coupleAsset)} / 860 sparks / 12 pops</small>
           </button>
           <button className="lab-test-button mega-test" type="button" onClick={triggerHoldBuildUp}>
             <Flame />
@@ -426,10 +456,10 @@ export function SoundLab({
             <span>Test Particle Stress</span>
             <small>Ridiculous quality stress pass</small>
           </button>
-          <button className="lab-test-button" type="button" onClick={() => onPlay("weekly-complete")}>
+          <button className="lab-test-button" type="button" onClick={() => onPlay("level-up-track")}>
             <RadioTower />
-            <span>Play weekly track</span>
-            <small>{weeklyAsset?.sourceFile}</small>
+            <span>Play level-up-track.mp3</span>
+            <small>{formatAssetSummary(levelUpAsset)}</small>
           </button>
         </div>
       </section>
@@ -440,7 +470,7 @@ export function SoundLab({
           <span>Web Audio API</span>
         </div>
         <div className="lab-grid">
-          {soundTests.map((test) => (
+          {soundResolutionEntries.map((test) => (
             <button
               className="lab-test-button"
               type="button"
@@ -453,6 +483,11 @@ export function SoundLab({
               {test.icon}
               <span>{test.label}</span>
               <small>{test.detail}</small>
+              <small>event {test.eventName}</small>
+              <small>expected {test.expectedPrimaryFile}</small>
+              <small className={test.asset?.source === "fallback-specific-missing" ? "lab-resolution-warning" : ""}>
+                actual {test.asset?.sourceFile ?? "synthetic-heavy-impact"} / {test.status} / {test.asset?.source ?? "fallback-missing"}
+              </small>
             </button>
           ))}
         </div>
@@ -543,7 +578,15 @@ function ToggleControl({ checked, label, onChange }: { checked: boolean; label: 
 }
 
 function createInitialAssetStatuses(): AssetStatusMap {
-  return Object.fromEntries(uploadedRewardAssets.map(([sound]) => [sound, "checking"])) as AssetStatusMap;
+  return Object.fromEntries(testedSounds.map((sound) => [sound, { status: "checking", asset: null }])) as AssetStatusMap;
+}
+
+function getResolvedOrDefaultAsset(sound: FeedbackSound, assetStatuses: AssetStatusMap): RewardSoundAssetCandidate | ResolvedFeedbackSoundAsset | null {
+  return assetStatuses[sound]?.asset ?? getRewardSoundCandidates(sound)[0] ?? null;
+}
+
+function formatAssetSummary(asset: RewardSoundAssetCandidate | ResolvedFeedbackSoundAsset | null): string {
+  return asset ? `${asset.sourceFile} / ${asset.source}` : "synthetic-heavy-impact";
 }
 
 const sampleState: TrackerState = {

@@ -5,8 +5,8 @@ import {
   feedbackSoundAssets,
   getAchievementFeedback,
   getWorkoutFeedback,
-  LEVEL_UP_TRACK_DURATION_MS,
-  LEVEL_UP_TRACK_SRC
+  LEVEL_UP_TRACK_SRC,
+  resolveFeedbackSoundAsset
 } from "./rewardFeedback.js";
 
 describe("reward feedback catalog", () => {
@@ -33,7 +33,7 @@ describe("reward feedback catalog", () => {
       sound: "weekly-complete",
       haptic: [60, 40, 120, 50, 180],
       rewardClass: "reward-complete",
-      durationMs: LEVEL_UP_TRACK_DURATION_MS
+      durationMs: 11154
     });
   });
 
@@ -66,7 +66,7 @@ describe("reward feedback catalog", () => {
     assert.deepEqual(getAchievementFeedback("couple_week_complete"), {
       sound: "couple-complete",
       haptic: [70, 40, 130, 60, 200, 80, 240],
-      durationMs: LEVEL_UP_TRACK_DURATION_MS
+      durationMs: 30067
     });
   });
 
@@ -74,29 +74,73 @@ describe("reward feedback catalog", () => {
     assert.deepEqual(getAchievementFeedback("individual_week_complete"), {
       sound: "individual-complete",
       haptic: [60, 40, 120, 50, 180],
-      durationMs: LEVEL_UP_TRACK_DURATION_MS
+      durationMs: 11154
     });
   });
 
-  it("uses uploaded milestone cues and the level-up track for major completion actions", () => {
+  it("uses uploaded milestone cues and goal-specific completion actions", () => {
     assert.deepEqual(
       Object.fromEntries(Object.entries(feedbackSoundAssets).map(([sound, asset]) => [sound, asset.sourceFile])),
       {
-        daily: "battlefield_6_sting.mp3",
+        "level-up-track": "level-up-track.mp3",
+        daily: "daily-impact.mp3",
         backfill: "warzone_victory.mp3",
-        first: "call_of_duty.mp3",
-        momentum: "battlefield_4_rank_up.mp3",
-        "one-more": "call-of-duty-modern-warfare-2-level-up-track-2.mp3",
-        "weekly-complete": "level-up-track.mp3",
-        "individual-complete": "level-up-track.mp3",
-        "couple-complete": "level-up-track.mp3"
+        first: "inertia-broken.mp3",
+        momentum: "momentum.mp3",
+        "one-more": "target-in-range.mp3",
+        "weekly-complete": "individual-goal.mp3",
+        "individual-complete": "individual-goal.mp3",
+        "couple-complete": "couple-goal.mp3"
       }
     );
 
     assert.equal(LEVEL_UP_TRACK_SRC, "/sfx/level-up-track.mp3");
-    assert.equal(feedbackSoundAssets["weekly-complete"]?.src, LEVEL_UP_TRACK_SRC);
-    assert.equal(feedbackSoundAssets["individual-complete"]?.src, LEVEL_UP_TRACK_SRC);
-    assert.equal(feedbackSoundAssets["couple-complete"]?.src, LEVEL_UP_TRACK_SRC);
+    assert.notEqual(feedbackSoundAssets["individual-complete"]?.src, LEVEL_UP_TRACK_SRC);
+    assert.notEqual(feedbackSoundAssets["couple-complete"]?.src, LEVEL_UP_TRACK_SRC);
+  });
+
+  it("resolves goal-specific assets before falling back to the level-up track", async () => {
+    const available = new Set(["/sfx/level-up-track.mp3", "/sfx/individual-goal.mp3", "/sfx/couple-goal.mp3"]);
+    const isAvailable = async (src: string) => available.has(src);
+
+    assert.deepEqual(await resolveFeedbackSoundAsset("individual-complete", isAvailable), {
+      src: "/sfx/individual-goal.mp3",
+      durationMs: 11154,
+      sourceFile: "individual-goal.mp3",
+      expectedPrimaryFile: "individual-goal.mp3",
+      source: "primary",
+      assignment: "4/4 individual goal",
+      sound: "individual-complete",
+      event: "individualComplete",
+      candidateIndex: 0,
+      fallbackUsed: false
+    });
+
+    assert.deepEqual(await resolveFeedbackSoundAsset("couple-complete", isAvailable), {
+      src: "/sfx/couple-goal.mp3",
+      durationMs: 30067,
+      sourceFile: "couple-goal.mp3",
+      expectedPrimaryFile: "couple-goal.mp3",
+      source: "primary",
+      assignment: "8/8 couple goal",
+      sound: "couple-complete",
+      event: "coupleComplete",
+      candidateIndex: 0,
+      fallbackUsed: false
+    });
+  });
+
+  it("uses level-up-track only when the specific goal asset and aliases are unavailable", async () => {
+    const isAvailable = async (src: string) => src === LEVEL_UP_TRACK_SRC;
+    const individual = await resolveFeedbackSoundAsset("individual-complete", isAvailable);
+    const couple = await resolveFeedbackSoundAsset("couple-complete", isAvailable);
+
+    assert.equal(individual?.src, LEVEL_UP_TRACK_SRC);
+    assert.equal(individual?.source, "fallback-specific-missing");
+    assert.equal(individual?.fallbackUsed, true);
+    assert.equal(couple?.src, LEVEL_UP_TRACK_SRC);
+    assert.equal(couple?.source, "fallback-specific-missing");
+    assert.equal(couple?.fallbackUsed, true);
   });
 
   it("keeps reward animation durations matched to the MP3 frame lengths", async () => {

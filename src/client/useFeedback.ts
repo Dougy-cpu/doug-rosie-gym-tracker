@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { feedbackSoundAssets, type FeedbackSound, type HapticPattern } from "./rewardFeedback";
+import { logRewardSoundResolution, resolveFeedbackSoundAsset, type FeedbackSound, type HapticPattern } from "./rewardFeedback";
 
 const muteStorageKey = "gym-tracker-muted";
 
@@ -9,7 +9,7 @@ export function useFeedback() {
   const [muted, setMutedState] = useState(() => localStorage.getItem(muteStorageKey) === "true");
   const [unlocked, setUnlocked] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioElementsRef = useRef<Partial<Record<FeedbackSound, HTMLAudioElement>>>({});
+  const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
 
   useEffect(() => {
     localStorage.setItem(muteStorageKey, String(muted));
@@ -103,16 +103,18 @@ export async function resumeAudioContextSafely(context: AudioContext): Promise<b
   }
 }
 
-async function playAudioAsset(kind: FeedbackSound, audioElements: Partial<Record<FeedbackSound, HTMLAudioElement>>): Promise<boolean> {
-  const asset = feedbackSoundAssets[kind];
+async function playAudioAsset(kind: FeedbackSound, audioElements: Record<string, HTMLAudioElement>): Promise<boolean> {
+  const asset = await resolveFeedbackSoundAsset(kind);
+  logRewardSoundResolution(kind, asset);
+
   if (!asset || typeof Audio === "undefined") {
     return false;
   }
 
-  const audio = audioElements[kind] ?? new Audio(asset.src);
-  audioElements[kind] = audio;
+  const audio = audioElements[asset.src] ?? new Audio(asset.src);
+  audioElements[asset.src] = audio;
   audio.preload = "auto";
-  audio.volume = kind === "couple-complete" ? 0.94 : kind === "weekly-complete" || kind === "individual-complete" ? 0.88 : 0.82;
+  audio.volume = kind === "couple-complete" ? 0.94 : kind === "weekly-complete" || kind === "individual-complete" || kind === "level-up-track" ? 0.88 : 0.82;
 
   try {
     audio.pause();
@@ -165,7 +167,7 @@ function playSound(context: AudioContext, kind: FeedbackSound) {
     return;
   }
 
-  if (kind === "weekly-complete") {
+  if (kind === "weekly-complete" || kind === "level-up-track") {
     ruptureFallback(context, now, 1);
     return;
   }

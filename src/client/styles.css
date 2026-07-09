@@ -1545,7 +1545,7 @@ button.calendar-day {
 }
 
 .lab-test-button {
-  min-height: 104px;
+  min-height: 132px;
   display: grid;
   place-items: center;
   gap: 5px;
@@ -1567,7 +1567,13 @@ button.calendar-day {
 .lab-test-button small {
   color: var(--muted);
   font-size: 0.65rem;
+  line-height: 1.2;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.lab-test-button .lab-resolution-warning {
+  color: #ffd3bd;
 }
 
 .explosion-test-grid {

@@ -24,21 +24,39 @@ describe("sound lab reward tests", () => {
     const source = await readFile(soundLabUrl, "utf8");
     const rewardSource = await readFile(rewardFeedbackUrl, "utf8");
 
-    assert.match(source, /Uploaded reward assets/);
-    assert.match(rewardSource, /battlefield_6_sting\.mp3/);
+    assert.match(source, /Resolved reward assets/);
+    assert.match(rewardSource, /daily-impact\.mp3/);
+    assert.match(rewardSource, /individual-goal\.mp3/);
+    assert.match(rewardSource, /couple-goal\.mp3/);
     assert.match(rewardSource, /level-up-track\.mp3/);
     assert.match(rewardSource, /LEVEL_UP_TRACK_SRC/);
-    assert.match(source, /Main sound for 4\/4 and 8\/8/);
+    assert.doesNotMatch(source, /Main sound for 4\/4 and 8\/8/);
     assert.match(source, /8-bit fallback/);
     assert.match(source, /disabled/i);
   });
 
-  it("only treats uploaded reward assets as loaded when the response is audio", async () => {
+  it("uses the central resolver and checks resolved files as audio", async () => {
     const source = await readFile(soundLabUrl, "utf8");
+    const rewardSource = await readFile(rewardFeedbackUrl, "utf8");
 
     assert.match(source, /Promise\.all/);
-    assert.match(source, /headers\.get\("content-type"\)/);
-    assert.match(source, /contentType\.startsWith\("audio\/"\)/);
+    assert.match(source, /resolveFeedbackSoundAsset/);
+    assert.match(rewardSource, /headers\.get\("content-type"\)/);
+    assert.match(rewardSource, /contentType\.startsWith\("audio\/"\)/);
+  });
+
+  it("exposes independent buttons for every requested reward sound", async () => {
+    const source = await readFile(soundLabUrl, "utf8");
+
+    assert.match(source, /Play level-up-track\.mp3/);
+    assert.match(source, /Play daily workout sound/);
+    assert.match(source, /Play 1\/4 inertia broken sound/);
+    assert.match(source, /Play 2\/4 momentum sound/);
+    assert.match(source, /Play 3\/4 target in range sound/);
+    assert.match(source, /Play 4\/4 individual goal sound/);
+    assert.match(source, /Play 8\/8 couple goal sound/);
+    assert.match(source, /expectedPrimaryFile/);
+    assert.match(source, /actual/);
   });
 
   it("exposes the requested particle, shake, flash, trigger and reduced-motion controls", async () => {
@@ -51,7 +69,7 @@ describe("sound lab reward tests", () => {
     assert.match(source, /Show trigger point/);
     assert.match(source, /Reduced motion preview/);
     assert.match(source, /Ridiculous/);
-    assert.match(source, /Play weekly track/);
+    assert.match(source, /Play level-up-track\.mp3/);
   });
 
   it("styles the daily reward burst like the other reward states", async () => {
