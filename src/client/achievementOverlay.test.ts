@@ -60,7 +60,9 @@ describe("AchievementOverlay", () => {
     assert.match(markup, /achievement-badge-unlock/);
     assert.match(markup, /BADGE UNLOCKED/);
     assert.match(markup, /--achievement-duration:11154ms/);
-    assert.match(markup, /data-particle-count="96"/);
+    assert.match(markup, /--achievement-lock-at:8366ms/);
+    assert.match(markup, /achievement-stage-glow/);
+    assert.doesNotMatch(markup, /particle-field/);
   });
 
   it("uses the exact couple completion copy and a combined 8 out of 8 slam meter", () => {
@@ -78,6 +80,8 @@ describe("AchievementOverlay", () => {
     assert.match(markup, /8 \/ 8/);
     assert.match(markup, /achievement-slam-meter/);
     assert.match(markup, /--achievement-duration:30067ms/);
-    assert.match(markup, /data-particle-count="160"/);
+    assert.match(markup, /--achievement-final-at:27060ms/);
+    assert.match(markup, /CHARGING/);
+    assert.doesNotMatch(markup, /particle-field/);
   });
 });

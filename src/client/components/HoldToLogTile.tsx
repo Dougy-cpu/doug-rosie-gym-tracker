@@ -1,6 +1,6 @@
 import { Dumbbell, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
+import { createHoldGestureController, type HoldGestureController, type HoldHapticMilestone } from "../holdGesture";
 import { getOriginFromElement, type RewardExplosionOrigin } from "../rewardExplosion";
 
 interface HoldToLogTileProps {
@@ -11,13 +11,12 @@ interface HoldToLogTileProps {
   onComplete: () => Promise<void>;
   onHoldStart: () => void;
   onHoldCancel: () => void;
-  onHoldPressurePulse: (milestone: HoldPressureMilestone) => void;
+  onHoldPressurePulse: (milestone: HoldHapticMilestone) => void;
   onRewardOriginChange: (origin: RewardExplosionOrigin | null) => void;
 }
 
 export const HOLD_TO_CONFIRM_MS = 3000;
 type HoldTileClickEvent = Pick<React.MouseEvent<HTMLButtonElement>, "preventDefault" | "stopPropagation">;
-export type HoldPressureMilestone = "pressure-build" | "unstable";
 type HoldStage = "idle" | "initial-lock" | "pressure-build" | "cracking" | "unstable" | "final-warning";
 
 const crackLines = [
@@ -36,7 +35,7 @@ const crackLines = [
   { left: 55, top: 18, rotate: 64, length: 30 }
 ] as const;
 
-const shardFragments = Array.from({ length: 120 }, (_, index) => ({
+const shardFragments = Array.from({ length: 28 }, (_, index) => ({
   id: index,
   angle: (index * 137.5) % 360,
   distance: 72 + (index % 8) * 15,
@@ -65,10 +64,6 @@ export function HoldToLogTile({
   const [holding, setHolding] = useState(false);
   const [busy, setBusy] = useState(false);
   const controllerRef = useRef<HoldGestureController | null>(null);
-  const milestoneRef = useRef<Record<HoldPressureMilestone, boolean>>({
-    "pressure-build": false,
-    unstable: false
-  });
 
   useEffect(() => {
     return () => {
@@ -76,25 +71,8 @@ export function HoldToLogTile({
     };
   }, []);
 
-  const resetMilestones = () => {
-    milestoneRef.current = {
-      "pressure-build": false,
-      unstable: false
-    };
-  };
-
   const handleProgress = (nextProgress: number) => {
     setProgress(nextProgress);
-
-    if (nextProgress >= 0.25 && !milestoneRef.current["pressure-build"]) {
-      milestoneRef.current["pressure-build"] = true;
-      onHoldPressurePulse("pressure-build");
-    }
-
-    if (nextProgress >= 0.67 && !milestoneRef.current.unstable) {
-      milestoneRef.current.unstable = true;
-      onHoldPressurePulse("unstable");
-    }
   };
 
   const start = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -104,13 +82,13 @@ export function HoldToLogTile({
 
     event.currentTarget.setPointerCapture(event.pointerId);
     onRewardOriginChange(getOriginFromElement(event.currentTarget));
-    resetMilestones();
     setHolding(true);
     onHoldStart();
     controllerRef.current = createHoldGestureController({
       durationMs: HOLD_TO_CONFIRM_MS,
       getNow: () => performance.now(),
       onProgress: handleProgress,
+      onMilestone: onHoldPressurePulse,
       requestFrame: (callback) => window.requestAnimationFrame(callback),
       cancelFrame: (frameId) => window.cancelAnimationFrame(frameId),
       onComplete: async () => {
@@ -120,7 +98,6 @@ export function HoldToLogTile({
         } finally {
           setBusy(false);
           setHolding(false);
-          resetMilestones();
         }
       }
     });
@@ -132,7 +109,6 @@ export function HoldToLogTile({
     controllerRef.current?.stop();
     if (wasHolding) {
       setHolding(false);
-      resetMilestones();
       onHoldCancel();
     }
   };
@@ -263,7 +239,7 @@ function SparkLeak({ active, progress }: { active: boolean; progress: number }) 
       aria-hidden="true"
       style={{ "--spark-intensity": active ? Math.min(1, progress * 1.35) : 0 } as React.CSSProperties}
     >
-      {Array.from({ length: 36 }, (_, index) => (
+      {Array.from({ length: 18 }, (_, index) => (
         <i key={index} style={{ "--spark-index": index } as React.CSSProperties} />
       ))}
     </span>

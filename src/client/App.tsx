@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getState, logWorkout, markSeen, removeWorkout, type ClientApiError } from "./api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getState, logWorkout, markSeen, removeWorkout } from "./api";
 import { mergeAchievementQueue } from "./achievementQueue";
-import { BottomNav } from "./components/BottomNav";
+import { getPriorityCoupleClaim, sortTriggeredAchievements } from "./coupleClaim";
+import { getHoldHapticPattern, type HoldHapticMilestone } from "./holdGesture";
 import { AchievementOverlay } from "./components/AchievementOverlay";
+import { BottomNav } from "./components/BottomNav";
+import { CoupleClaimCard } from "./components/CoupleClaimCard";
 import { CoupleTracker } from "./components/CoupleTracker";
 import { PersonalTracker } from "./components/PersonalTracker";
 import { RewardExplosionCanvas } from "./components/RewardExplosionCanvas";
@@ -10,15 +13,36 @@ import { SoundLab } from "./components/SoundLab";
 import {
   defaultRewardExplosionControls,
   getExplosionKindForReward,
+  resolveRewardEffectDuration,
+  type RewardEffectMetrics,
+  type RewardExplosionControls,
   type RewardExplosionKind,
   type RewardExplosionOrigin,
   type RewardExplosionRequest,
-  type RewardExplosionControls
+  type RewardExplosionTiming
 } from "./rewardExplosion";
 import { getAchievementFeedback, getFeedbackDurationMs, getWorkoutFeedback } from "./rewardFeedback";
 import { isTrackerRoute, validAppRoutes, type AppRoute } from "./routes";
 import { useFeedback } from "./useFeedback";
 import type { AchievementEvent, TrackerState, UserSlug, ViewerSlug } from "../shared/types.js";
+
+interface ActiveAchievement {
+  achievement: AchievementEvent;
+  durationMs: number;
+  source: "immediate" | "claim" | "pending";
+}
+
+const initialEffectMetrics: RewardEffectMetrics = {
+  active: false,
+  activeParticles: 0,
+  averageFrameMs: 0,
+  fps: 0,
+  quality: defaultRewardExplosionControls.particleIntensity,
+  durationMs: 0,
+  durationSource: "fixed",
+  progress: 0,
+  performanceGuardActive: false
+};
 
 export function App() {
   const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath());
@@ -29,34 +53,83 @@ export function App() {
   const [rewardDurationMs, setRewardDurationMs] = useState(() => getFeedbackDurationMs("tap"));
   const [rewardOrigin, setRewardOrigin] = useState<RewardExplosionOrigin | null>(null);
   const [explosionRequest, setExplosionRequest] = useState<RewardExplosionRequest | null>(null);
+  const [effectMetrics, setEffectMetrics] = useState<RewardEffectMetrics>(initialEffectMetrics);
   const [achievementQueue, setAchievementQueue] = useState<AchievementEvent[]>([]);
-  const [activeAchievement, setActiveAchievement] = useState<AchievementEvent | null>(null);
-  const { muted, setMuted, unlocked, unlock, play, vibrate } = useFeedback();
+  const [activeAchievement, setActiveAchievement] = useState<ActiveAchievement | null>(null);
+  const [achievementStarting, setAchievementStarting] = useState(false);
+  const [pendingClaim, setPendingClaim] = useState<AchievementEvent | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const activeAchievementRef = useRef<AchievementEvent | null>(null);
+  const immediateAchievementIdsRef = useRef(new Set<number>());
+  const rewardTimerRef = useRef(0);
+  const requestIdRef = useRef(0);
+  const {
+    muted,
+    setMuted,
+    unlocked,
+    unlock,
+    play,
+    stop,
+    vibrate,
+    vibrationSupported,
+    lastVibrationResult
+  } = useFeedback();
 
   const viewerUser: UserSlug | null = route === "doug" || route === "rosie" ? route : null;
 
-  const enqueueAchievements = useCallback((events: AchievementEvent[]) => {
-    setAchievementQueue((current) => mergeAchievementQueue(current, events, activeAchievement));
+  useEffect(() => {
+    activeAchievementRef.current = activeAchievement?.achievement ?? null;
   }, [activeAchievement]);
 
+  useEffect(() => {
+    return () => window.clearTimeout(rewardTimerRef.current);
+  }, []);
+
+  const enqueueAchievements = useCallback((events: AchievementEvent[]) => {
+    setAchievementQueue((current) => mergeAchievementQueue(current, events, activeAchievementRef.current));
+  }, []);
+
   const triggerRewardExplosion = useCallback(
-    (kind: RewardExplosionKind, origin: RewardExplosionOrigin | null = rewardOrigin, controls: RewardExplosionControls = defaultRewardExplosionControls) => {
+    (
+      kind: RewardExplosionKind,
+      origin: RewardExplosionOrigin | null = rewardOrigin,
+      controls: RewardExplosionControls = defaultRewardExplosionControls,
+      timing: RewardExplosionTiming = {}
+    ) => {
+      requestIdRef.current += 1;
       setExplosionRequest({
-        id: Date.now(),
+        id: Date.now() + requestIdRef.current,
         kind,
         origin,
-        controls
+        controls,
+        ...timing
       });
     },
     [rewardOrigin]
   );
 
-  const refresh = useCallback(async (viewer: ViewerSlug) => {
-    setError(null);
-    const nextState = await getState(viewer);
-    setState(nextState);
-    enqueueAchievements(nextState.pendingAchievements);
-  }, [enqueueAchievements]);
+  const stagePendingAchievements = useCallback(
+    (nextState: TrackerState) => {
+      const claim = getPriorityCoupleClaim(nextState.pendingAchievements);
+      setPendingClaim(claim);
+      if (!claim) {
+        enqueueAchievements(nextState.pendingAchievements.filter((event) => event.eventType !== "couple_week_complete"));
+      }
+    },
+    [enqueueAchievements]
+  );
+
+  const refresh = useCallback(
+    async (viewer: ViewerSlug) => {
+      setError(null);
+      const nextState = await getState(viewer);
+      setState(nextState);
+      if (viewer === "doug" || viewer === "rosie") {
+        stagePendingAchievements(nextState);
+      }
+    },
+    [stagePendingAchievements]
+  );
 
   useEffect(() => {
     const onPopState = () => setRoute(getRouteFromPath());
@@ -65,29 +138,58 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    window.clearTimeout(rewardTimerRef.current);
+    stop();
+    setExplosionRequest(null);
+    setAchievementQueue([]);
+    immediateAchievementIdsRef.current.clear();
+    setActiveAchievement(null);
+    setPendingClaim(null);
+    setClaiming(false);
+
     if (!isTrackerRoute(route)) {
       setBusy(false);
       setError(null);
       return;
     }
 
+    setState(null);
     setBusy(true);
     refresh(route)
       .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Unable to load tracker."))
       .finally(() => setBusy(false));
-  }, [refresh, route]);
+  }, [refresh, route, stop]);
+
+  const launchAchievement = useCallback(
+    async (achievement: AchievementEvent, source: ActiveAchievement["source"]) => {
+      const feedback = getAchievementFeedback(achievement.eventType);
+      const playback = await play(feedback.sound);
+      const kind: RewardExplosionKind = achievement.eventType === "couple_week_complete" ? "couple" : "weekly";
+      const duration = resolveRewardEffectDuration(kind, playback.durationMs, playback.durationSource);
+      setActiveAchievement({ achievement, durationMs: duration.durationMs, source });
+      vibrate(feedback.haptic);
+      triggerRewardExplosion(kind, null, defaultRewardExplosionControls, {
+        audioDurationMs: playback.durationMs,
+        durationSource: playback.durationSource
+      });
+    },
+    [play, triggerRewardExplosion, vibrate]
+  );
 
   useEffect(() => {
-    if (!activeAchievement && achievementQueue.length > 0) {
-      const [next, ...remaining] = achievementQueue;
-      setActiveAchievement(next);
-      setAchievementQueue(remaining);
-      const nextFeedback = getAchievementFeedback(next.eventType);
-      void play(nextFeedback.sound);
-      vibrate(nextFeedback.haptic);
-      triggerRewardExplosion(next.eventType === "couple_week_complete" ? "couple" : "weekly", null);
+    if (activeAchievement || achievementStarting || pendingClaim || achievementQueue.length === 0) {
+      return;
     }
-  }, [activeAchievement, achievementQueue, play, triggerRewardExplosion, vibrate]);
+
+    const [next, ...remaining] = achievementQueue;
+    const source = immediateAchievementIdsRef.current.has(next.id) ? "immediate" : "pending";
+    immediateAchievementIdsRef.current.delete(next.id);
+    setAchievementQueue(remaining);
+    setAchievementStarting(true);
+    void launchAchievement(next, source)
+      .catch(() => setError("The reward could not start. Try it again from the tracker."))
+      .finally(() => setAchievementStarting(false));
+  }, [activeAchievement, achievementQueue, achievementStarting, launchAchievement, pendingClaim]);
 
   const navigate = useCallback((viewer: AppRoute) => {
     window.history.pushState({}, "", `/${viewer}`);
@@ -104,8 +206,8 @@ export function App() {
   }, [play]);
 
   const playHoldPressurePulse = useCallback(
-    (milestone: "pressure-build" | "unstable") => {
-      vibrate(milestone === "pressure-build" ? 14 : [28, 25, 42]);
+    (milestone: HoldHapticMilestone) => {
+      vibrate(getHoldHapticPattern(milestone));
     },
     [vibrate]
   );
@@ -122,29 +224,48 @@ export function App() {
         await unlock();
         const result = await logWorkout(viewerUser, date, source);
         setState(result.state);
-        enqueueAchievements(result.state.pendingAchievements);
+        const viewerId = result.state.users.find((user) => user.slug === viewerUser)?.id ?? null;
+        const actionAchievements = sortTriggeredAchievements(
+          result.state.pendingAchievements.filter((event) => viewerId !== null && event.triggeringUserId === viewerId)
+        );
+        for (const achievement of actionAchievements) {
+          immediateAchievementIdsRef.current.add(achievement.id);
+        }
+        enqueueAchievements(actionAchievements);
+
+        const awayClaim = getPriorityCoupleClaim(
+          result.state.pendingAchievements.filter((event) => event.triggeringUserId !== viewerId)
+        );
+        if (awayClaim) {
+          setPendingClaim(awayClaim);
+        }
+
         const nextFeedback = getWorkoutFeedback({
           countAfter: result.state.counts[viewerUser].week,
           created: result.created,
           source
         });
-        const pendingAchievementFeedback = result.state.pendingAchievements[0]
-          ? getAchievementFeedback(result.state.pendingAchievements[0].eventType)
-          : null;
-        const explosionKind = getExplosionKindForReward({
-          countAfter: result.state.counts[viewerUser].week,
-          created: result.created,
-          achievement: result.state.pendingAchievements[0] ?? null
-        });
+        const nextAchievementFeedback = actionAchievements[0] ? getAchievementFeedback(actionAchievements[0].eventType) : null;
         setRewardClass(nextFeedback.rewardClass);
-        setRewardDurationMs(pendingAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
-        window.setTimeout(() => setRewardClass("reward-none"), pendingAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
+        setRewardDurationMs(nextAchievementFeedback?.durationMs ?? nextFeedback.durationMs);
+        window.clearTimeout(rewardTimerRef.current);
+        rewardTimerRef.current = window.setTimeout(
+          () => setRewardClass("reward-none"),
+          nextAchievementFeedback?.durationMs ?? nextFeedback.durationMs
+        );
 
-        if (!pendingAchievementFeedback) {
-          void play(nextFeedback.sound);
+        if (actionAchievements.length === 0) {
+          const playback = await play(nextFeedback.sound);
           vibrate(nextFeedback.haptic);
+          const explosionKind = getExplosionKindForReward({
+            countAfter: result.state.counts[viewerUser].week,
+            created: result.created
+          });
           if (explosionKind) {
-            triggerRewardExplosion(explosionKind);
+            triggerRewardExplosion(explosionKind, undefined, defaultRewardExplosionControls, {
+              audioDurationMs: playback.durationMs,
+              durationSource: playback.durationSource
+            });
           }
         }
       } catch (caught) {
@@ -178,20 +299,58 @@ export function App() {
     [play, vibrate, viewerUser]
   );
 
+  const claimCoupleAchievement = useCallback(async () => {
+    if (!pendingClaim || claiming) {
+      return;
+    }
+
+    setClaiming(true);
+    setError(null);
+    try {
+      await launchAchievement(pendingClaim, "claim");
+      setPendingClaim(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The couple reward could not start.");
+    } finally {
+      setClaiming(false);
+    }
+  }, [claiming, launchAchievement, pendingClaim]);
+
   const dismissAchievement = useCallback(async () => {
     if (!activeAchievement || !viewerUser) {
       setActiveAchievement(null);
       return;
     }
 
+    const finishedAchievement = activeAchievement;
+    stop();
+    setExplosionRequest(null);
+    activeAchievementRef.current = null;
+    setActiveAchievement(null);
+
     try {
-      await markSeen(viewerUser, activeAchievement.id);
-      setActiveAchievement(null);
-      await refresh(viewerUser);
+      await markSeen(viewerUser, finishedAchievement.achievement.id);
+      setState((current) =>
+        current
+          ? {
+              ...current,
+              pendingAchievements: current.pendingAchievements.filter((event) => event.id !== finishedAchievement.achievement.id)
+            }
+          : current
+      );
+
+      if (finishedAchievement.source === "claim" && state) {
+        const remaining = state.pendingAchievements.filter((event) => event.id !== finishedAchievement.achievement.id);
+        const nextClaim = getPriorityCoupleClaim(remaining);
+        setPendingClaim(nextClaim);
+        if (!nextClaim) {
+          enqueueAchievements(remaining.filter((event) => event.eventType !== "couple_week_complete"));
+        }
+      }
     } catch {
-      setActiveAchievement(null);
+      setError("The reward played, but its viewed status could not be saved. It may appear again.");
     }
-  }, [activeAchievement, refresh, viewerUser]);
+  }, [activeAchievement, enqueueAchievements, state, stop, viewerUser]);
 
   const content = useMemo(() => {
     if (route === "sound-lab") {
@@ -199,22 +358,37 @@ export function App() {
         <SoundLab
           muted={muted}
           unlocked={unlocked}
+          vibrationSupported={vibrationSupported}
+          lastVibrationResult={lastVibrationResult}
+          effectMetrics={effectMetrics}
           onMuteChange={setMuted}
           onNavigate={navigate}
           onUnlock={() => void unlock()}
-          onPlay={(sound) => void play(sound)}
+          onPlay={play}
           onVibrate={vibrate}
           onExplode={triggerRewardExplosion}
         />
       );
     }
 
-    if (error) {
+    if (error && !state) {
       return <SetupState message={error} onRetry={() => void refresh(route)} />;
     }
 
     if (!state) {
       return <LoadingState />;
+    }
+
+    if (pendingClaim && viewerUser) {
+      return (
+        <CoupleClaimCard
+          achievement={pendingClaim}
+          state={state}
+          viewer={viewerUser}
+          claiming={claiming}
+          onClaim={() => void claimCoupleAchievement()}
+        />
+      );
     }
 
     if (route === "couple") {
@@ -241,10 +415,17 @@ export function App() {
     );
   }, [
     busy,
+    claimCoupleAchievement,
+    claiming,
+    effectMetrics,
     error,
     handleLog,
     handleRemove,
+    lastVibrationResult,
+    muted,
     navigate,
+    pendingClaim,
+    play,
     playHoldCancel,
     playHoldPressurePulse,
     playHoldStart,
@@ -252,23 +433,42 @@ export function App() {
     rewardClass,
     rewardDurationMs,
     route,
-    muted,
-    play,
     setMuted,
     state,
+    triggerRewardExplosion,
     unlock,
     unlocked,
-    vibrate
+    vibrate,
+    vibrationSupported,
+    viewerUser
   ]);
 
   return (
-    <div className={["app-shell", rewardClass !== "reward-none" ? rewardClass : ""].filter(Boolean).join(" ")}>
+    <div
+      className={[
+        "app-shell",
+        rewardClass !== "reward-none" ? rewardClass : "",
+        vibrationSupported ? "haptics-supported" : "haptics-fallback"
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       {content}
-      <BottomNav current={route} onNavigate={navigate} />
+      {!pendingClaim ? <BottomNav current={route} onNavigate={navigate} /> : null}
       {activeAchievement && state && viewerUser ? (
-        <AchievementOverlay achievement={activeAchievement} state={state} viewer={viewerUser} onDismiss={dismissAchievement} />
+        <AchievementOverlay
+          achievement={activeAchievement.achievement}
+          state={state}
+          viewer={viewerUser}
+          durationMs={activeAchievement.durationMs}
+          onDismiss={dismissAchievement}
+        />
       ) : null}
-      <RewardExplosionCanvas request={explosionRequest} onComplete={() => setExplosionRequest(null)} />
+      <RewardExplosionCanvas
+        request={explosionRequest}
+        onMetrics={setEffectMetrics}
+        onComplete={() => setExplosionRequest(null)}
+      />
     </div>
   );
 }

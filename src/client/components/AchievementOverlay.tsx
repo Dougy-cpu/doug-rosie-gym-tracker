@@ -9,18 +9,19 @@ interface AchievementOverlayProps {
   achievement: AchievementEvent;
   state: TrackerState;
   viewer: UserSlug;
+  durationMs?: number;
   onDismiss: () => void;
 }
 
-export function AchievementOverlay({ achievement, state, viewer, onDismiss }: AchievementOverlayProps) {
+export function AchievementOverlay({ achievement, state, viewer, durationMs: requestedDurationMs, onDismiss }: AchievementOverlayProps) {
   const [canDismiss, setCanDismiss] = useState(false);
+  const [played, setPlayed] = useState(false);
   const isCouple = achievement.eventType === "couple_week_complete";
   const viewerName = state.users.find((user) => user.slug === viewer)?.displayName ?? "You";
   const title = isCouple ? "COUPLE WEEK COMPLETE" : "WEEKLY TARGET COMPLETE";
   const metric = isCouple ? "8 / 8" : "4 / 4";
   const copy = isCouple ? "HOUSEHOLD OBJECTIVE COMPLETE" : `${viewerName.toUpperCase()} LOCKED THE WEEKLY TARGET`;
-  const durationMs = getAchievementFeedback(achievement.eventType).durationMs;
-  const particleCount = isCouple ? 160 : 96;
+  const durationMs = requestedDurationMs ?? getAchievementFeedback(achievement.eventType).durationMs;
   const quote = getDeterministicQuote(
     isCouple ? "couple-complete" : "individual-complete",
     `${achievement.eventType}-${achievement.weekStartDate}-${viewer}`
@@ -28,36 +29,36 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
 
   useEffect(() => {
     setCanDismiss(false);
-    const timerId = window.setTimeout(() => setCanDismiss(true), durationMs);
-    return () => window.clearTimeout(timerId);
+    setPlayed(false);
+    const dismissTimerId = window.setTimeout(() => setCanDismiss(true), Math.min(1800, Math.max(900, durationMs * 0.12)));
+    const playedTimerId = window.setTimeout(() => setPlayed(true), durationMs);
+    return () => {
+      window.clearTimeout(dismissTimerId);
+      window.clearTimeout(playedTimerId);
+    };
   }, [achievement.id, durationMs]);
 
   return (
     <div
-      className={isCouple ? "achievement-backdrop couple-achievement" : "achievement-backdrop"}
+      className={["achievement-backdrop", isCouple ? "couple-achievement" : "", played ? "achievement-played" : ""]
+        .filter(Boolean)
+        .join(" ")}
       role="dialog"
       aria-modal="true"
       aria-labelledby="achievement-title"
     >
       <section
         className={isCouple ? "achievement-card couple" : "achievement-card"}
-        style={{ "--achievement-duration": `${durationMs}ms` } as CSSProperties}
+        style={
+          {
+            "--achievement-duration": `${durationMs}ms`,
+            "--achievement-impact-at": `${Math.round(durationMs * (isCouple ? 0.3 : 0.15))}ms`,
+            "--achievement-lock-at": `${Math.round(durationMs * (isCouple ? 0.85 : 0.75))}ms`,
+            "--achievement-final-at": `${Math.round(durationMs * (isCouple ? 0.9 : 0.82))}ms`
+          } as CSSProperties
+        }
       >
-        <div className="achievement-shockwave" aria-hidden="true" />
-        <div className="particle-field" aria-hidden="true" data-particle-count={particleCount}>
-          {Array.from({ length: particleCount }, (_, index) => (
-            <span
-              key={index}
-              style={
-                {
-                  "--particle-angle": `${(index * 137.5) % 360}deg`,
-                  "--particle-distance": `${isCouple ? 108 + (index % 12) * 10 : 76 + (index % 8) * 8}px`,
-                  "--particle-delay": `${(index % 12) * 18}ms`
-                } as CSSProperties
-              }
-            />
-          ))}
-        </div>
+        <div className="achievement-stage-glow" aria-hidden="true" />
 
         <div className="achievement-burst" aria-hidden="true">
           {isCouple ? <Crown /> : <Trophy />}
@@ -88,7 +89,7 @@ export function AchievementOverlay({ achievement, state, viewer, onDismiss }: Ac
 
         <p>{quote}</p>
         <button type="button" disabled={!canDismiss} onClick={onDismiss}>
-          {canDismiss ? "CONTINUE" : "LOCKING..."}
+          {!canDismiss ? "CHARGING..." : played ? "CONTINUE" : "DISMISS & BANK IT"}
         </button>
       </section>
     </div>

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { compareIsoDates } from "../../shared/date.js";
 import type { CalendarDay } from "../../shared/date.js";
 import type { UserSlug } from "../../shared/types.js";
-import { createHoldGestureController, type HoldGestureController } from "../holdGesture";
+import { createHoldGestureController, type HoldGestureController, type HoldHapticMilestone } from "../holdGesture";
 import { HOLD_TO_CONFIRM_MS } from "./HoldToLogTile";
 
 interface PersonalCalendarProps {
@@ -15,6 +15,7 @@ interface PersonalCalendarProps {
   onRemoveRequest: (date: string) => void;
   onHoldStart: () => void;
   onHoldCancel: () => void;
+  onHoldPressurePulse?: (milestone: HoldHapticMilestone) => void;
 }
 
 interface CoupleCalendarProps {
@@ -41,7 +42,8 @@ export function PersonalCalendar({
   onAdd,
   onRemoveRequest,
   onHoldStart,
-  onHoldCancel
+  onHoldCancel,
+  onHoldPressurePulse = () => undefined
 }: PersonalCalendarProps) {
   const completedDates = workoutsByUser[userSlug];
 
@@ -64,6 +66,7 @@ export function PersonalCalendar({
             onComplete={complete ? onRemoveRequest : onAdd}
             onHoldStart={onHoldStart}
             onHoldCancel={onHoldCancel}
+            onHoldPressurePulse={onHoldPressurePulse}
           />
         );
       })}
@@ -80,7 +83,8 @@ function HoldCalendarDayButton({
   disabled,
   onComplete,
   onHoldStart,
-  onHoldCancel
+  onHoldCancel,
+  onHoldPressurePulse
 }: {
   action: "add" | "remove";
   className: string;
@@ -91,6 +95,7 @@ function HoldCalendarDayButton({
   onComplete: (date: string) => void;
   onHoldStart: () => void;
   onHoldCancel: () => void;
+  onHoldPressurePulse: (milestone: HoldHapticMilestone) => void;
 }) {
   const [progress, setProgress] = useState(0);
   const controllerRef = useRef<HoldGestureController | null>(null);
@@ -112,6 +117,7 @@ function HoldCalendarDayButton({
       durationMs: CALENDAR_HOLD_DURATION_MS,
       getNow: () => performance.now(),
       onProgress: setProgress,
+      onMilestone: onHoldPressurePulse,
       requestFrame: (callback) => window.requestAnimationFrame(callback),
       cancelFrame: (frameId) => window.cancelAnimationFrame(frameId),
       onComplete: async () => onComplete(date)
@@ -130,7 +136,7 @@ function HoldCalendarDayButton({
   return (
     <button
       aria-label={`${action === "remove" ? "Hold to remove" : "Hold to add"} ${date}`}
-      className={`${className} hold-calendar-day ${action === "remove" ? "calendar-remove-hold" : ""}`}
+      className={`${className} hold-calendar-day ${progress > 0 ? "holding" : ""} ${action === "remove" ? "calendar-remove-hold" : ""}`}
       data-calendar-action={action}
       type="button"
       disabled={disabled}

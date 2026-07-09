@@ -1,16 +1,19 @@
-import { Activity, BadgeCheck, Bolt, Flame, HeartPulse, RadioTower, ShieldCheck, SlidersHorizontal, Sparkles, Zap } from "lucide-react";
+import { Activity, BadgeCheck, Bolt, Flame, Gauge, HeartPulse, RadioTower, ShieldCheck, SlidersHorizontal, Sparkles, Vibrate, Zap } from "lucide-react";
 import type { CSSProperties, MouseEvent, ReactElement } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AchievementEvent, TrackerState } from "../../shared/types.js";
 import type { AppRoute } from "../routes";
 import {
   defaultRewardExplosionControls,
   getOriginFromElement,
+  resolveRewardEffectDuration,
   type FlashIntensity,
   type ParticleIntensity,
+  type RewardEffectMetrics,
   type RewardExplosionControls,
   type RewardExplosionKind,
   type RewardExplosionOrigin,
+  type RewardExplosionTiming,
   type ScreenShakeLevel
 } from "../rewardExplosion";
 import {
@@ -27,18 +30,29 @@ import {
 } from "../rewardFeedback";
 import { MuteToggle } from "./MuteToggle";
 import { AchievementOverlay } from "./AchievementOverlay";
+import { CoupleClaimCard } from "./CoupleClaimCard";
+import { getHoldHapticPattern, holdHapticMilestones } from "../holdGesture";
 import { HOLD_TO_CONFIRM_MS } from "./HoldToLogTile";
 import { ProgressSegments } from "./ProgressSegments";
+import type { FeedbackPlaybackResult } from "../useFeedback";
 
 interface SoundLabProps {
   muted: boolean;
   unlocked: boolean;
+  vibrationSupported: boolean;
+  lastVibrationResult: boolean | null;
+  effectMetrics: RewardEffectMetrics;
   onMuteChange: (muted: boolean) => void;
   onNavigate: (viewer: AppRoute) => void;
   onUnlock: () => void;
-  onPlay: (sound: FeedbackSound) => void;
-  onVibrate: (pattern: HapticPattern) => void;
-  onExplode: (kind: RewardExplosionKind, origin?: RewardExplosionOrigin | null, controls?: RewardExplosionControls) => void;
+  onPlay: (sound: FeedbackSound) => Promise<FeedbackPlaybackResult>;
+  onVibrate: (pattern: HapticPattern) => boolean;
+  onExplode: (
+    kind: RewardExplosionKind,
+    origin?: RewardExplosionOrigin | null,
+    controls?: RewardExplosionControls,
+    timing?: RewardExplosionTiming
+  ) => void;
 }
 
 const soundTests: Array<{
@@ -102,6 +116,9 @@ const testedSounds = Array.from(new Set(soundTests.map((test) => test.sound)));
 export function SoundLab({
   muted,
   unlocked,
+  vibrationSupported,
+  lastVibrationResult,
+  effectMetrics,
   onMuteChange,
   onNavigate,
   onUnlock,
@@ -111,7 +128,11 @@ export function SoundLab({
 }: SoundLabProps) {
   const [demoReward, setDemoReward] = useState("reward-none");
   const [demoRewardDurationMs, setDemoRewardDurationMs] = useState(() => getFeedbackDurationMs("daily"));
-  const [overlay, setOverlay] = useState<"individual" | "couple" | null>(null);
+  const [overlay, setOverlay] = useState<{ kind: "individual" | "couple"; durationMs: number } | null>(null);
+  const [claimPreview, setClaimPreview] = useState(false);
+  const [lastPlayback, setLastPlayback] = useState<FeedbackPlaybackResult | null>(null);
+  const [progressiveHapticsRunning, setProgressiveHapticsRunning] = useState(false);
+  const hapticTimersRef = useRef<number[]>([]);
   const [assetStatuses, setAssetStatuses] = useState<AssetStatusMap>(() => createInitialAssetStatuses());
   const [holdPreviewProgress, setHoldPreviewProgress] = useState(0);
   const [particleIntensity, setParticleIntensity] = useState<ParticleIntensity>(defaultRewardExplosionControls.particleIntensity);
@@ -175,6 +196,14 @@ export function SoundLab({
   }, []);
 
   useEffect(() => {
+    return () => {
+      for (const timerId of hapticTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const missingAssets = soundResolutionEntries.filter((entry) => entry.status === "missing");
     if (missingAssets.length === 0) {
       return;
@@ -199,38 +228,71 @@ export function SoundLab({
     }, durationMs);
   };
 
-  const triggerExplosion = (
+  const triggerExplosion = async (
     event: MouseEvent<HTMLButtonElement>,
     kind: RewardExplosionKind,
     options: { sound?: FeedbackSound; haptic?: HapticPattern; forceControls?: Partial<RewardExplosionControls>; overlay?: "individual" | "couple" } = {}
   ) => {
     const controls = { ...explosionControls, ...options.forceControls };
     const origin = getOriginFromElement(event.currentTarget);
-    onExplode(kind, origin, controls);
-
+    let playback: FeedbackPlaybackResult | null = null;
     if (options.sound) {
-      onPlay(options.sound);
+      playback = await onPlay(options.sound);
+      setLastPlayback(playback);
     }
+
+    onExplode(kind, origin, controls, playback ? { audioDurationMs: playback.durationMs, durationSource: playback.durationSource } : undefined);
 
     if (options.haptic) {
       onVibrate(options.haptic);
     }
 
     if (options.overlay) {
-      setOverlay(options.overlay);
+      const effectDuration = resolveRewardEffectDuration(kind, playback?.durationMs, playback?.durationSource);
+      setOverlay({
+        kind: options.overlay,
+        durationMs: effectDuration.durationMs
+      });
     }
   };
 
   const triggerHoldBuildUp = (event: MouseEvent<HTMLButtonElement>) => {
+    for (const timerId of hapticTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+    hapticTimersRef.current = [];
     const origin = getOriginFromElement(event.currentTarget);
     previewHold(1, HOLD_TO_CONFIRM_MS + 900, "reward-complete");
-    onPlay("hold-charge");
-    onVibrate([24, 35, 48, 45, 82]);
-    window.setTimeout(() => {
-      onExplode("hold", origin, explosionControls);
-      onPlay("daily");
+    void onPlay("hold-charge");
+    setProgressiveHapticsRunning(true);
+    for (const milestone of holdHapticMilestones) {
+      hapticTimersRef.current.push(
+        window.setTimeout(() => onVibrate(getHoldHapticPattern(milestone.milestone)), milestone.progress * HOLD_TO_CONFIRM_MS)
+      );
+    }
+    hapticTimersRef.current.push(window.setTimeout(async () => {
+      const playback = await onPlay("daily");
+      setLastPlayback(playback);
+      onExplode("hold", origin, explosionControls, {
+        audioDurationMs: playback.durationMs,
+        durationSource: playback.durationSource
+      });
       onVibrate(getWorkoutFeedback({ countAfter: 1, created: true }).haptic);
-    }, HOLD_TO_CONFIRM_MS);
+      setProgressiveHapticsRunning(false);
+    }, HOLD_TO_CONFIRM_MS));
+  };
+
+  const playCoupleClaimPreview = async () => {
+    const playback = await onPlay("couple-complete");
+    const effectDuration = resolveRewardEffectDuration("couple", playback.durationMs, playback.durationSource);
+    setLastPlayback(playback);
+    setClaimPreview(false);
+    setOverlay({ kind: "couple", durationMs: effectDuration.durationMs });
+    onVibrate(getAchievementFeedback("couple_week_complete").haptic);
+    onExplode("couple", null, explosionControls, {
+      audioDurationMs: playback.durationMs,
+      durationSource: playback.durationSource
+    });
   };
 
   return (
@@ -288,6 +350,56 @@ export function SoundLab({
         ) : null}
       </section>
 
+      <section className="asset-status-panel lab-runtime-panel">
+        <div className="section-heading">
+          <h2>Phone feedback status</h2>
+          <span>Live reward telemetry</span>
+        </div>
+        <div className="asset-status-grid">
+          <StatusPill
+            label="Vibration API"
+            value={vibrationSupported ? "supported" : "unsupported"}
+            detail={vibrationSupported ? "navigator.vibrate is available" : "iOS Safari commonly reports unsupported; visual shake and audio remain active"}
+          />
+          <StatusPill
+            label="Last vibration call"
+            value={lastVibrationResult === null ? "not tested" : lastVibrationResult ? "returned true" : "returned false"}
+            detail="Shows the browser return value, not a guarantee that the motor physically fired"
+          />
+          <StatusPill
+            label="Frame time / FPS"
+            value={effectMetrics.active ? `${effectMetrics.averageFrameMs}ms / ${effectMetrics.fps} FPS` : "idle"}
+            detail={effectMetrics.performanceGuardActive ? "Spawn rate reduced by the performance guard" : "Adaptive spawn guard ready"}
+          />
+          <StatusPill
+            label="Active particles"
+            value={String(effectMetrics.activeParticles)}
+            detail={`${effectMetrics.quality} quality / ${Math.round(effectMetrics.progress * 100)}% complete`}
+          />
+          <StatusPill
+            label="Effect duration"
+            value={effectMetrics.durationMs ? `${effectMetrics.durationMs}ms` : "not running"}
+            detail={`source ${effectMetrics.durationSource}`}
+          />
+          <StatusPill
+            label="Current audio duration"
+            value={lastPlayback ? `${lastPlayback.durationMs}ms` : "not played"}
+            detail={lastPlayback ? `source ${lastPlayback.durationSource} / ${lastPlayback.assetSrc ?? "heavy fallback"}` : "Run an effect test"}
+          />
+        </div>
+        {!vibrationSupported ? (
+          <p className="asset-warning">Vibration is unavailable in this browser. The app automatically leans harder on screen shake, pressure glow and audio impact.</p>
+        ) : null}
+        <div className="lab-inline-actions">
+          <button type="button" onClick={() => onVibrate(35)}>
+            <Vibrate aria-hidden="true" /> Test vibration pulse
+          </button>
+          <button type="button" disabled={progressiveHapticsRunning} onClick={(event) => triggerHoldBuildUp(event)}>
+            <HeartPulse aria-hidden="true" /> {progressiveHapticsRunning ? "Progressive hold running" : "Test progressive 3-second hold"}
+          </button>
+        </div>
+      </section>
+
       <section className="section lab-control-panel">
         <div className="section-heading">
           <h2>Explosion controls</h2>
@@ -297,6 +409,7 @@ export function SoundLab({
           label="Particle intensity"
           value={particleIntensity}
           options={[
+            { label: "Low", value: "low" },
             { label: "Normal", value: "normal" },
             { label: "High", value: "high" },
             { label: "Ridiculous", value: "ridiculous" }
@@ -376,7 +489,7 @@ export function SoundLab({
           >
             <Bolt />
             <span>Test Daily Explosion</span>
-            <small>160 sparks / 52 shards / 52 embers</small>
+            <small>Tile centre plus two secondary epicentres</small>
           </button>
           <button
             className="lab-test-button mega-test"
@@ -388,7 +501,7 @@ export function SoundLab({
           >
             <Zap />
             <span>Test 1/4 Inertia Explosion</span>
-            <small>240 sparks / 85 shards / 4 firework pops</small>
+            <small>High-quality staged rupture</small>
           </button>
           <button
             className="lab-test-button mega-test"
@@ -404,7 +517,7 @@ export function SoundLab({
           >
             <ShieldCheck />
             <span>Test 4/4 Weekly Complete Explosion</span>
-            <small>{formatAssetSummary(individualAsset)} / 520 sparks / 8 pops</small>
+            <small>{formatAssetSummary(individualAsset)} / full audio timeline</small>
           </button>
           <button
             className="lab-test-button mega-test couple-mega-test"
@@ -420,7 +533,7 @@ export function SoundLab({
           >
             <Sparkles />
             <span>Test 8/8 Couple Mega Explosion</span>
-            <small>{formatAssetSummary(coupleAsset)} / 860 sparks / 12 pops</small>
+            <small>{formatAssetSummary(coupleAsset)} / full audio timeline + off-screen bursts</small>
           </button>
           <button className="lab-test-button mega-test" type="button" onClick={triggerHoldBuildUp}>
             <Flame />
@@ -442,6 +555,24 @@ export function SoundLab({
             <small>Sharp high-frequency shake</small>
           </button>
           <button
+            className="lab-test-button mega-test"
+            type="button"
+            onClick={(event) =>
+              triggerExplosion(event, "offscreen", {
+                forceControls: { showTriggerPoint: true, particleIntensity: particleIntensity === "low" ? "normal" : particleIntensity }
+              })
+            }
+          >
+            <Gauge />
+            <span>Test Off-Screen Epicentres</span>
+            <small>Rings and streaks enter from every viewport edge</small>
+          </button>
+          <button className="lab-test-button mega-test couple-mega-test" type="button" onClick={() => setClaimPreview(true)}>
+            <ShieldCheck />
+            <span>Test Couple Claim Modal</span>
+            <small>Claim interaction unlocks the full 8/8 sound and animation</small>
+          </button>
+          <button
             className="lab-test-button mega-test stress-test"
             type="button"
             onClick={(event) =>
@@ -456,7 +587,7 @@ export function SoundLab({
             <span>Test Particle Stress</span>
             <small>Ridiculous quality stress pass</small>
           </button>
-          <button className="lab-test-button" type="button" onClick={() => onPlay("level-up-track")}>
+          <button className="lab-test-button" type="button" onClick={() => void onPlay("level-up-track").then(setLastPlayback)}>
             <RadioTower />
             <span>Play level-up-track.mp3</span>
             <small>{formatAssetSummary(levelUpAsset)}</small>
@@ -476,7 +607,7 @@ export function SoundLab({
               type="button"
               key={test.sound}
               onClick={() => {
-                onPlay(test.sound);
+                void onPlay(test.sound).then(setLastPlayback);
                 onVibrate(test.haptic);
               }}
             >
@@ -494,11 +625,11 @@ export function SoundLab({
       </section>
 
       <section className="person-links">
-        <button type="button" onClick={() => setOverlay("individual")}>
+        <button type="button" onClick={() => setOverlay({ kind: "individual", durationMs: getAchievementFeedback("individual_week_complete").durationMs })}>
           Individual overlay
           <span>4 / 4</span>
         </button>
-        <button type="button" onClick={() => setOverlay("couple")}>
+        <button type="button" onClick={() => setOverlay({ kind: "couple", durationMs: getAchievementFeedback("couple_week_complete").durationMs })}>
           Couple overlay
           <span>8 / 8</span>
         </button>
@@ -517,10 +648,21 @@ export function SoundLab({
 
       {overlay ? (
         <AchievementOverlay
-          achievement={overlay === "couple" ? sampleCoupleAchievement : sampleIndividualAchievement}
+          achievement={overlay.kind === "couple" ? sampleCoupleAchievement : sampleIndividualAchievement}
           state={sampleState}
           viewer="doug"
+          durationMs={overlay.durationMs}
           onDismiss={() => setOverlay(null)}
+        />
+      ) : null}
+      {claimPreview ? (
+        <CoupleClaimCard
+          achievement={sampleCoupleAchievement}
+          state={sampleState}
+          viewer="doug"
+          claiming={false}
+          preview
+          onClaim={() => void playCoupleClaimPreview()}
         />
       ) : null}
     </main>

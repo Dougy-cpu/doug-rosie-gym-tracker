@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { CALENDAR_HOLD_DURATION_MS } from "./components/WorkoutCalendar.js";
 import { HOLD_TO_CONFIRM_MS } from "./components/HoldToLogTile.js";
-import { createHoldGestureController } from "./holdGesture.js";
+import { createHoldGestureController, getHoldHapticPattern } from "./holdGesture.js";
 
 type FrameCallback = () => void | Promise<void>;
 
@@ -89,5 +89,33 @@ describe("hold gesture controller", () => {
 
     assert.equal(completed, 1);
     assert.deepEqual(progressValues, [1, 0]);
+  });
+
+  it("fires the four progressive hold haptic milestones once", async () => {
+    const milestones: string[] = [];
+    const frameCallbacks: FrameCallback[] = [];
+    let now = 0;
+    const controller = createHoldGestureController({
+      durationMs: 3000,
+      getNow: () => now,
+      onProgress: () => undefined,
+      onMilestone: (milestone) => milestones.push(milestone),
+      onComplete: async () => undefined,
+      requestFrame: (callback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      },
+      cancelFrame: () => undefined
+    });
+
+    controller.start();
+    for (const time of [600, 1200, 1800, 2400]) {
+      now = time;
+      const callback = frameCallbacks.shift();
+      if (callback) await callback();
+    }
+
+    assert.deepEqual(milestones, ["600ms", "1200ms", "1800ms", "2400ms"]);
+    assert.deepEqual(getHoldHapticPattern("2400ms"), [35, 20, 45]);
   });
 });

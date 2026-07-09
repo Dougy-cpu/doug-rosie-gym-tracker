@@ -1,19 +1,64 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { logRewardSoundResolution, resolveFeedbackSoundAsset, type FeedbackSound, type HapticPattern } from "./rewardFeedback";
+import {
+  getFeedbackDurationMs,
+  logRewardSoundResolution,
+  resolveFeedbackSoundAsset,
+  type FeedbackSound,
+  type HapticPattern
+} from "./rewardFeedback";
 
 const muteStorageKey = "gym-tracker-muted";
 
 type AudioContextWithWebkit = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
+export interface FeedbackPlaybackResult {
+  started: boolean;
+  durationMs: number;
+  durationSource: "audio-metadata" | "configured-audio" | "fallback";
+  assetSrc: string | null;
+}
+
 export function useFeedback() {
   const [muted, setMutedState] = useState(() => localStorage.getItem(muteStorageKey) === "true");
   const [unlocked, setUnlocked] = useState(false);
+  const [lastVibrationResult, setLastVibrationResult] = useState<boolean | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
+  const vibrationSupported = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 
   useEffect(() => {
     localStorage.setItem(muteStorageKey, String(muted));
   }, [muted]);
+
+  useEffect(() => {
+    if (typeof Audio === "undefined") {
+      return;
+    }
+
+    let cancelled = false;
+    void Promise.all(["individual-complete", "couple-complete"].map((sound) => resolveFeedbackSoundAsset(sound as FeedbackSound))).then(
+      (assets) => {
+        if (cancelled) {
+          return;
+        }
+
+        for (const asset of assets) {
+          if (!asset || audioElementsRef.current[asset.src]) {
+            continue;
+          }
+
+          const audio = new Audio(asset.src);
+          audio.preload = "metadata";
+          audio.load();
+          audioElementsRef.current[asset.src] = audio;
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const unlock = useCallback(async () => {
     if (muted || typeof window === "undefined") {
@@ -39,40 +84,60 @@ export function useFeedback() {
   }, [muted]);
 
   const play = useCallback(
-    async (kind: FeedbackSound) => {
+    async (kind: FeedbackSound): Promise<FeedbackPlaybackResult> => {
       if (muted) {
-        return;
+        return fallbackPlayback(kind, false);
       }
 
       try {
         await unlock();
       } catch {
-        return;
+        return fallbackPlayback(kind, false);
       }
 
-      if (await playAudioAsset(kind, audioElementsRef.current)) {
+      const audioPlayback = await playAudioAsset(kind, audioElementsRef.current);
+      if (audioPlayback) {
         setUnlocked(true);
-        return;
+        return audioPlayback;
       }
 
       const context = audioContextRef.current;
       if (!context) {
-        return;
+        return fallbackPlayback(kind, false);
       }
 
       try {
         playSound(context, kind);
+        return fallbackPlayback(kind, true);
       } catch {
         audioContextRef.current = null;
         setUnlocked(false);
+        return fallbackPlayback(kind, false);
       }
     },
     [muted, unlock]
   );
 
   const vibrate = useCallback((pattern: HapticPattern) => {
-    if ("vibrate" in navigator) {
-      navigator.vibrate(pattern);
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") {
+      setLastVibrationResult(false);
+      return false;
+    }
+
+    try {
+      const result = navigator.vibrate(pattern);
+      setLastVibrationResult(result);
+      return result;
+    } catch {
+      setLastVibrationResult(false);
+      return false;
+    }
+  }, []);
+
+  const stop = useCallback(() => {
+    for (const audio of Object.values(audioElementsRef.current)) {
+      audio.pause();
+      audio.currentTime = 0;
     }
   }, []);
 
@@ -80,7 +145,17 @@ export function useFeedback() {
     setMutedState(next);
   }, []);
 
-  return { muted, setMuted, unlocked, unlock, play, vibrate };
+  return {
+    muted,
+    setMuted,
+    unlocked,
+    unlock,
+    play,
+    stop,
+    vibrate,
+    vibrationSupported,
+    lastVibrationResult
+  };
 }
 
 export function createAudioContextSafely(AudioContextConstructor: typeof AudioContext): AudioContext | null {
@@ -94,7 +169,10 @@ export function createAudioContextSafely(AudioContextConstructor: typeof AudioCo
 export async function resumeAudioContextSafely(context: AudioContext): Promise<boolean> {
   try {
     if (context.state === "suspended") {
-      await context.resume();
+      await Promise.race([
+        context.resume().catch(() => undefined),
+        new Promise<void>((resolve) => globalThis.setTimeout(resolve, 220))
+      ]);
     }
 
     return context.state === "running";
@@ -103,12 +181,15 @@ export async function resumeAudioContextSafely(context: AudioContext): Promise<b
   }
 }
 
-async function playAudioAsset(kind: FeedbackSound, audioElements: Record<string, HTMLAudioElement>): Promise<boolean> {
+async function playAudioAsset(
+  kind: FeedbackSound,
+  audioElements: Record<string, HTMLAudioElement>
+): Promise<FeedbackPlaybackResult | null> {
   const asset = await resolveFeedbackSoundAsset(kind);
   logRewardSoundResolution(kind, asset);
 
   if (!asset || typeof Audio === "undefined") {
-    return false;
+    return null;
   }
 
   const audio = audioElements[asset.src] ?? new Audio(asset.src);
@@ -119,11 +200,54 @@ async function playAudioAsset(kind: FeedbackSound, audioElements: Record<string,
   try {
     audio.pause();
     audio.currentTime = 0;
-    await audio.play();
-    return true;
+    const playResult = await requestAudioPlayback(audio);
+    if (playResult === "rejected") {
+      return null;
+    }
+    const measuredDurationMs = getFiniteAudioDurationMs(audio);
+    return {
+      started: playResult === "started",
+      durationMs: measuredDurationMs ?? asset.durationMs,
+      durationSource: measuredDurationMs ? "audio-metadata" : "configured-audio",
+      assetSrc: asset.src
+    };
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function requestAudioPlayback(audio: HTMLAudioElement): Promise<"started" | "pending" | "rejected"> {
+  try {
+    const attempt = audio.play();
+    if (!attempt) {
+      return "started";
+    }
+
+    let timerId = 0;
+    const result = await Promise.race([
+      attempt.then(() => "started" as const).catch(() => "rejected" as const),
+      new Promise<"pending">((resolve) => {
+        timerId = window.setTimeout(() => resolve("pending"), 220);
+      })
+    ]);
+    window.clearTimeout(timerId);
+    return result;
+  } catch {
+    return "rejected";
+  }
+}
+
+function getFiniteAudioDurationMs(audio: HTMLAudioElement): number | null {
+  return Number.isFinite(audio.duration) && audio.duration >= 0.5 ? Math.round(audio.duration * 1000) : null;
+}
+
+function fallbackPlayback(kind: FeedbackSound, started: boolean): FeedbackPlaybackResult {
+  return {
+    started,
+    durationMs: getFeedbackDurationMs(kind),
+    durationSource: "fallback",
+    assetSrc: null
+  };
 }
 
 function playSound(context: AudioContext, kind: FeedbackSound) {

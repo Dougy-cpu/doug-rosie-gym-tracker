@@ -16,6 +16,8 @@ describe("sound lab reward tests", () => {
     assert.match(source, /Test 8\/8 Couple Mega Explosion/);
     assert.match(source, /Test Hold Build-Up \+ Rupture/);
     assert.match(source, /Test Screen Shake/);
+    assert.match(source, /Test Off-Screen Epicentres/);
+    assert.match(source, /Test Couple Claim Modal/);
     assert.match(source, /Test Particle Stress/);
     assert.doesNotMatch(source, /Daily animation test/);
   });
@@ -69,6 +71,13 @@ describe("sound lab reward tests", () => {
     assert.match(source, /Show trigger point/);
     assert.match(source, /Reduced motion preview/);
     assert.match(source, /Ridiculous/);
+    assert.match(source, /Low/);
+    assert.match(source, /Vibration API/);
+    assert.match(source, /Test vibration pulse/);
+    assert.match(source, /Test progressive 3-second hold/);
+    assert.match(source, /Frame time \/ FPS/);
+    assert.match(source, /Active particles/);
+    assert.match(source, /Current audio duration/);
     assert.match(source, /Play level-up-track\.mp3/);
   });
 

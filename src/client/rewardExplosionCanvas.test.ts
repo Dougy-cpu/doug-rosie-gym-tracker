@@ -11,7 +11,7 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /<canvas ref=\{canvasRef\}/);
     assert.match(source, /requestAnimationFrame/);
     assert.match(source, /cancelAnimationFrame/);
-    assert.match(source, /getContext\("2d"\)/);
+    assert.match(source, /getContext\("2d", \{ alpha: true \}\)/);
     assert.match(source, /globalCompositeOperation = "lighter"/);
   });
 
@@ -23,14 +23,28 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /"shard"/);
     assert.match(source, /"ember"/);
     assert.match(source, /"smoke"/);
-    assert.match(source, /createShockwaves/);
-    assert.match(source, /drawScreenFlash/);
+    assert.match(source, /shockwaves\.push/);
+    assert.match(source, /drawScreenFlashes/);
   });
 
-  it("supports trigger-point origin and aggressive shell shake cleanup", async () => {
+  it("uses pooling, visibility pausing and an adaptive frame-time guard", async () => {
+    const source = await readFile(canvasUrl, "utf8");
+
+    assert.match(source, /particlePool/);
+    assert.match(source, /pool\.pop\(\)/);
+    assert.match(source, /pool\.push\(particle\)/);
+    assert.match(source, /averageFrameMs > 23/);
+    assert.match(source, /adaptiveSpawnScale/);
+    assert.match(source, /visibilitychange/);
+    assert.match(source, /onMetricsRef/);
+  });
+
+  it("supports multiple epicentres and aggressive shell shake cleanup", async () => {
     const source = await readFile(canvasUrl, "utf8");
 
     assert.match(source, /activeRequest\.origin/);
+    assert.match(source, /getRewardEpicentres/);
+    assert.match(source, /buildRewardBurstTimeline/);
     assert.match(source, /querySelector\("\.app-shell"\)/);
     assert.match(source, /classList\.add\(shakeClass\)/);
     assert.match(source, /classList\.remove\(shakeClass\)/);
