@@ -29,9 +29,9 @@ describe("couple achievement claim flow", () => {
   });
 
   it("rotates the full requested copy bank deterministically", () => {
-    assert.equal(coupleClaimTitles.length, 6);
-    assert.equal(coupleClaimBodies.length, 15);
-    assert.equal(coupleClaimButtons.length, 10);
+    assert.equal(coupleClaimTitles.length, 7);
+    assert.equal(coupleClaimBodies.length, 10);
+    assert.equal(coupleClaimButtons.length, 8);
     assert.deepEqual(getCoupleClaimCopy(couple, "doug"), getCoupleClaimCopy(couple, "doug"));
   });
 
@@ -52,6 +52,8 @@ describe("couple achievement claim flow", () => {
     assert.match(markup, new RegExp(escapeRegExp(copy.title)));
     assert.match(markup, new RegExp(escapeRegExp(copy.body)));
     assert.match(markup, new RegExp(escapeRegExp(copy.button)));
+    assert.match(markup, /reward-crate/);
+    assert.match(markup, /REWARD CRATE/);
   });
 });
 

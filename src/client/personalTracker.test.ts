@@ -79,4 +79,33 @@ describe("PersonalTracker", () => {
 
     assert.match(markup, /--reward-duration:11102ms/);
   });
+
+  it("arms the main tile to finish the week at 3 out of 4", () => {
+    const pressureState: TrackerState = {
+      ...completeState,
+      workoutsByUser: { ...completeState.workoutsByUser, doug: ["2026-07-05", "2026-07-08", "2026-07-10"] },
+      counts: { ...completeState.counts, doug: { week: 3, target: 4 }, couple: { week: 3, target: 8 } }
+    };
+    const markup = renderToStaticMarkup(
+      React.createElement(PersonalTracker, {
+        state: pressureState,
+        userSlug: "doug",
+        muted: false,
+        busy: false,
+        rewardClass: "reward-none",
+        rewardDurationMs: 6269,
+        onMuteChange: () => undefined,
+        onNavigate: () => undefined,
+        onLog: async () => undefined,
+        onRemove: async () => undefined,
+        onHoldStart: () => undefined,
+        onHoldCancel: () => undefined,
+        onHoldPressurePulse: () => undefined,
+        onRewardOriginChange: () => undefined
+      })
+    );
+
+    assert.match(markup, /Finish the week/);
+    assert.match(markup, /target-armed/);
+  });
 });

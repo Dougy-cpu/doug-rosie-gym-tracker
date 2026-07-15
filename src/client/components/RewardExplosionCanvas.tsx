@@ -16,7 +16,14 @@ interface RewardExplosionCanvasProps {
   onMetrics?: (metrics: RewardEffectMetrics) => void;
 }
 
-type ParticleType = "spark" | "firework" | "shard" | "ember" | "smoke" | "pre-spark";
+type ParticleType = "spark" | "firework" | "shard" | "ember" | "smoke" | "pre-spark" | "rain";
+
+interface ViewportMetrics {
+  width: number;
+  height: number;
+  centreX: number;
+  centreY: number;
+}
 
 interface Particle {
   type: ParticleType;
@@ -47,6 +54,7 @@ interface Shockwave {
   speed: number;
   width: number;
   color: string;
+  chromaticOffset: number;
 }
 
 interface FlashBurst {
@@ -63,7 +71,8 @@ const emptyMetrics: RewardEffectMetrics = {
   durationMs: 0,
   durationSource: "fixed",
   progress: 0,
-  performanceGuardActive: false
+  performanceGuardActive: false,
+  spawnScale: 1
 };
 
 export function RewardExplosionCanvas({ request, onComplete, onMetrics }: RewardExplosionCanvasProps) {
@@ -103,7 +112,7 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
     const shockwaves: Shockwave[] = [];
     const flashes: FlashBurst[] = [];
     const smokeSprite = createSmokeSprite();
-    const shell = document.querySelector(".app-shell");
+    const shell = document.querySelector(".app-surface");
     const shakeClass = getShakeClass(controls.screenShake, activeRequest.kind);
     let width = 0;
     let height = 0;
@@ -124,7 +133,7 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
     let finished = false;
 
     const resize = () => {
-      const qualityRatio = profile.quality === "low" ? 1 : profile.quality === "normal" ? 1.5 : 2;
+      const qualityRatio = profile.quality === "low" ? 1 : profile.quality === "normal" ? 1.35 : profile.quality === "high" ? 1.75 : 2;
       ratio = Math.min(window.devicePixelRatio || 1, qualityRatio);
       width = window.innerWidth;
       height = window.innerHeight;
@@ -152,7 +161,8 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
         durationMs: profile.durationMs,
         durationSource: profile.durationSource,
         progress: Math.min(1, elapsed / profile.durationMs),
-        performanceGuardActive
+        performanceGuardActive,
+        spawnScale: adaptiveSpawnScale
       });
     };
 
@@ -176,7 +186,14 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
     };
 
     const spawnTimelineEvent = (event: RewardBurstEvent) => {
-      const origin = epicentres[event.epicentreIndex] ?? epicentres[0];
+      const configuredOrigin = epicentres[event.epicentreIndex] ?? epicentres[0];
+      const randomViewportFirework =
+        event.kind === "firework" &&
+        (profile.kind === "weekly" || profile.kind === "couple" || profile.kind === "offscreen" || profile.kind === "stress") &&
+        Math.random() < 0.42;
+      const origin = randomViewportFirework
+        ? { id: "random-viewport-firework", x: random(width * 0.08, width * 0.92), y: random(height * 0.12, height * 0.76), offscreen: false }
+        : configuredOrigin;
       if (!origin) {
         return;
       }
@@ -184,7 +201,7 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       spawnBurst({
         event,
         origin,
-        viewport: { x: width * 0.5, y: height * 0.5 },
+        viewport: { width, height, centreX: width * 0.5, centreY: height * 0.5 },
         profile,
         particles,
         particlePool,
@@ -278,7 +295,13 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
 
       if (!finished) {
         finished = true;
-        onMetricsRef.current?.({ ...emptyMetrics, quality: profile.quality, durationMs: profile.durationMs, durationSource: profile.durationSource });
+        onMetricsRef.current?.({
+          ...emptyMetrics,
+          quality: profile.quality,
+          durationMs: profile.durationMs,
+          durationSource: profile.durationSource,
+          spawnScale: adaptiveSpawnScale
+        });
         setActiveRequest(null);
         onCompleteRef.current?.();
       }
@@ -302,7 +325,13 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       particlePool.length = 0;
       shockwaves.length = 0;
       flashes.length = 0;
-      onMetricsRef.current?.({ ...emptyMetrics, quality: profile.quality, durationMs: profile.durationMs, durationSource: profile.durationSource });
+      onMetricsRef.current?.({
+        ...emptyMetrics,
+        quality: profile.quality,
+        durationMs: profile.durationMs,
+        durationSource: profile.durationSource,
+        spawnScale: adaptiveSpawnScale
+      });
     };
   }, [activeRequest]);
 
@@ -331,7 +360,7 @@ function spawnBurst({
 }: {
   event: RewardBurstEvent;
   origin: RewardEpicentre;
-  viewport: { x: number; y: number };
+  viewport: ViewportMetrics;
   profile: ReturnType<typeof getRewardExplosionProfile>;
   particles: Particle[];
   particlePool: Particle[];
@@ -342,6 +371,20 @@ function spawnBurst({
 }) {
   const remainingCapacity = Math.max(0, activeCap - particles.length);
   if (remainingCapacity === 0) {
+    return;
+  }
+
+  if (event.kind === "rain") {
+    spawnParticleGroup(
+      "rain",
+      Math.round(24 * event.strength * spawnScale),
+      remainingCapacity,
+      origin,
+      viewport,
+      particles,
+      particlePool,
+      event.kind
+    );
     return;
   }
 
@@ -365,7 +408,10 @@ function spawnBurst({
   }
 
   if (event.kind !== "charge") {
-    const ringCount = event.kind === "impact" || event.kind === "final" ? Math.min(3, profile.counts.shockwaves) : 1;
+    const ringCount =
+      event.kind === "impact" || event.kind === "final"
+        ? Math.min(3, profile.counts.shockwaves)
+        : Math.min(1, profile.counts.shockwaves);
     for (let index = 0; index < ringCount; index += 1) {
       shockwaves.push({
         x: origin.x,
@@ -375,7 +421,8 @@ function spawnBurst({
         radius: 16 + index * 9,
         speed: 0.48 + event.strength * 0.16 + index * 0.08,
         width: 2.5 + event.strength * 1.4 + index,
-        color: index === 0 ? "rgba(255,255,245,0.92)" : index % 2 === 0 ? "rgba(255,201,40,0.72)" : "rgba(255,91,24,0.66)"
+        color: index === 0 ? "rgba(255,255,245,0.92)" : index % 2 === 0 ? "rgba(255,201,40,0.72)" : "rgba(255,91,24,0.66)",
+        chromaticOffset: 1.4 + event.strength * 1.8 + index * 0.8
       });
     }
   }
@@ -386,7 +433,7 @@ function spawnParticleGroup(
   requestedCount: number,
   budget: number,
   origin: RewardEpicentre,
-  viewport: { x: number; y: number },
+  viewport: ViewportMetrics,
   particles: Particle[],
   particlePool: Particle[],
   burstKind: RewardBurstEvent["kind"]
@@ -401,30 +448,39 @@ function spawnParticleGroup(
 function acquireParticle(
   type: ParticleType,
   origin: RewardEpicentre,
-  viewport: { x: number; y: number },
+  viewport: ViewportMetrics,
   pool: Particle[],
   burstKind: RewardBurstEvent["kind"]
 ): Particle {
   const particle = pool.pop() ?? ({} as Particle);
-  const inwardAngle = Math.atan2(viewport.y - origin.y, viewport.x - origin.x);
+  const inwardAngle = Math.atan2(viewport.centreY - origin.y, viewport.centreX - origin.x);
   const angle = origin.offscreen && Math.random() < 0.82 ? inwardAngle + random(-0.72, 0.72) : random(0, Math.PI * 2);
   const speedRange = getSpeedRange(type, burstKind);
   const speed = random(speedRange[0], speedRange[1]);
   const palette = getPalette(type);
 
   particle.type = type;
-  particle.x = origin.x + random(-9, 9);
-  particle.y = origin.y + random(-9, 9);
+  particle.x = type === "rain" ? random(0, viewport.width) : origin.x + random(-9, 9);
+  particle.y = type === "rain" ? random(-viewport.height * 0.08, viewport.height * 0.16) : origin.y + random(-9, 9);
   particle.previousX = particle.x;
   particle.previousY = particle.y;
-  particle.vx = Math.cos(angle) * speed;
-  particle.vy = Math.sin(angle) * speed + (type === "smoke" ? random(-0.08, -0.02) : 0);
-  particle.gravity = type === "shard" ? random(0.00055, 0.0011) : type === "smoke" ? -0.00005 : type === "ember" ? random(0.00004, 0.0002) : random(0.00008, 0.0003);
-  particle.drag = type === "smoke" ? 0.965 : type === "ember" ? 0.985 : 0.978;
+  particle.vx = type === "rain" ? random(-0.08, 0.08) : Math.cos(angle) * speed;
+  particle.vy = type === "rain" ? random(0.34, 0.72) : Math.sin(angle) * speed + (type === "smoke" ? random(-0.08, -0.02) : 0);
+  particle.gravity =
+    type === "rain"
+      ? random(0.00008, 0.00022)
+      : type === "shard"
+        ? random(0.00055, 0.0011)
+        : type === "smoke"
+          ? -0.00005
+          : type === "ember"
+            ? random(0.00004, 0.0002)
+            : random(0.00008, 0.0003);
+  particle.drag = type === "smoke" ? 0.965 : type === "ember" || type === "rain" ? 0.985 : 0.978;
   particle.age = 0;
   particle.maxLife = getLife(type);
-  particle.size = type === "smoke" ? random(22, 58) : type === "shard" ? random(4, 11) : random(1.3, 3.4);
-  particle.length = type === "smoke" ? random(28, 72) : type === "shard" ? random(9, 24) : random(20, 70);
+  particle.size = type === "smoke" ? random(22, 58) : type === "shard" ? random(4, 11) : type === "rain" ? random(1, 2.4) : random(1.3, 3.4);
+  particle.length = type === "smoke" ? random(28, 72) : type === "shard" ? random(9, 24) : type === "rain" ? random(34, 88) : random(20, 70);
   particle.rotation = random(0, Math.PI * 2);
   particle.spin = random(-0.012, 0.012);
   particle.color = palette[0];
@@ -533,11 +589,23 @@ function drawShockwave(context: CanvasRenderingContext2D, shockwave: Shockwave) 
   }
 
   const progress = shockwave.age / shockwave.maxLife;
-  context.globalAlpha = Math.max(0, 1 - progress);
-  context.strokeStyle = shockwave.color;
+  const fade = Math.max(0, 1 - progress);
+  const radius = shockwave.radius + shockwave.age * shockwave.speed;
+  const chromatic = shockwave.chromaticOffset * (0.4 + progress);
+  context.globalAlpha = fade * 0.62;
+  context.strokeStyle = "rgba(255,48,36,0.72)";
   context.lineWidth = shockwave.width * (1 - progress * 0.4);
   context.beginPath();
-  context.arc(shockwave.x, shockwave.y, shockwave.radius + shockwave.age * shockwave.speed, 0, Math.PI * 2);
+  context.arc(shockwave.x - chromatic, shockwave.y, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.strokeStyle = "rgba(55,212,255,0.72)";
+  context.beginPath();
+  context.arc(shockwave.x + chromatic, shockwave.y, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.globalAlpha = fade;
+  context.strokeStyle = shockwave.color;
+  context.beginPath();
+  context.arc(shockwave.x, shockwave.y, radius, 0, Math.PI * 2);
   context.stroke();
   context.globalAlpha = 1;
 }
@@ -547,11 +615,17 @@ function drawScreenFlashes(
   width: number,
   height: number,
   flashes: FlashBurst[],
-  intensity: "normal" | "high"
+  intensity: "off" | "normal" | "high" | "ridiculous"
 ) {
+  if (intensity === "off") {
+    return;
+  }
+
+  const whiteScale = intensity === "ridiculous" ? 0.78 : intensity === "high" ? 0.62 : 0.42;
+  const orangeScale = intensity === "ridiculous" ? 0.34 : intensity === "high" ? 0.24 : 0.16;
   for (const flash of flashes) {
-    const white = flash.age < 150 ? (1 - flash.age / 150) * flash.strength * (intensity === "high" ? 0.62 : 0.42) : 0;
-    const orange = flash.age < 900 ? (1 - flash.age / 900) * flash.strength * (intensity === "high" ? 0.24 : 0.16) : 0;
+    const white = flash.age < 150 ? (1 - flash.age / 150) * flash.strength * whiteScale : 0;
+    const orange = flash.age < 900 ? (1 - flash.age / 900) * flash.strength * orangeScale : 0;
     if (white > 0) {
       context.fillStyle = `rgba(255,255,240,${Math.min(0.82, white)})`;
       context.fillRect(0, 0, width, height);
@@ -624,6 +698,7 @@ function createSmokeSprite(): HTMLCanvasElement {
 function getSpeedRange(type: ParticleType, burstKind: RewardBurstEvent["kind"]): [number, number] {
   const multiplier = burstKind === "final" ? 1.18 : burstKind === "impact" ? 1.08 : 1;
   if (type === "smoke") return [0.035, 0.13];
+  if (type === "rain") return [0.34, 0.72];
   if (type === "ember") return [0.08 * multiplier, 0.34 * multiplier];
   if (type === "shard") return [0.22 * multiplier, 0.68 * multiplier];
   if (type === "firework") return [0.2 * multiplier, 0.64 * multiplier];
@@ -634,6 +709,7 @@ function getLife(type: ParticleType): number {
   if (type === "smoke") return random(1200, 2600);
   if (type === "ember") return random(900, 2300);
   if (type === "shard") return random(700, 1700);
+  if (type === "rain") return random(900, 1800);
   return random(360, 940);
 }
 
@@ -641,6 +717,7 @@ function getPalette(type: ParticleType): [string, string] {
   if (type === "shard") return ["rgba(43,40,34,0.96)", "rgba(255,226,128,0.94)"];
   if (type === "smoke") return ["rgba(65,58,49,0.44)", "rgba(255,128,44,0.18)"];
   if (type === "ember") return ["rgba(255,82,20,0.96)", "rgba(255,214,68,0.88)"];
+  if (type === "rain") return ["rgba(255,205,62,0.98)", "rgba(255,74,20,0.92)"];
   if (type === "firework") {
     const colors: Array<[string, string]> = [
       ["#fff8c8", "#ffc928"],

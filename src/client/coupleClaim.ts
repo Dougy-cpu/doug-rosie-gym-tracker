@@ -1,43 +1,37 @@
 import type { AchievementEvent, UserSlug } from "../shared/types.js";
 
 export const coupleClaimTitles = [
-  "COUPLE GOAL READY TO CLAIM",
-  "HOUSEHOLD OBJECTIVE COMPLETE",
   "SHARED SMUGNESS WAITING",
-  "8 / 8 HAS ENTERED THE CHAT",
-  "YOUR REWARD IS WAITING",
-  "THE HOUSE DID THE WORK"
+  "COUPLE GOAL READY TO DETONATE",
+  "HOUSEHOLD OBJECTIVE COMPLETE",
+  "8 / 8 IS ARMED",
+  "DOMESTIC DOMINATION READY",
+  "THE HOUSE WENT 8 / 8",
+  "NO WEAK LINK DETECTED"
 ] as const;
 
 export const coupleClaimBodies = [
   "While you were away, the household stopped making excuses.",
+  "Your partner finished the job. The sofa is in ruins.",
   "The couple goal was hit. Try not to become unbearable.",
   "8 / 8 is waiting. Tap to collect your smugness.",
-  "The sofa lost the week. Claim the evidence.",
-  "The calendar is legally required to respect you both.",
-  "Your partner finished the job. The house went 8 / 8.",
-  "Domestic domination has been achieved. Tap to enjoy the nonsense.",
-  "Shared smugness is available for collection.",
-  "The weekly target has been completed by both parties. Horrifyingly competent behaviour.",
-  "The household objective is complete. Claim your ridiculous little victory.",
-  "No weak link this week. Tap to watch the app overreact.",
-  "The excuses were outnumbered. Claim the explosion.",
-  "Your reward is ready. The app has been saving the drama.",
-  "8 sessions. 2 people. Zero sofa-based betrayal.",
-  "You may now collect one serving of unreasonable satisfaction."
+  "The calendar has been forced to respect you both.",
+  "The excuses were outnumbered and frankly embarrassed.",
+  "The app saved the overreaction for you.",
+  "No weak link this week. Suspiciously competent behaviour.",
+  "The house did the work. Now claim the fireworks.",
+  "This is what accountability looks like when it gets annoying."
 ] as const;
 
 export const coupleClaimButtons = [
-  "CLAIM THE SMUGNESS",
   "DETONATE THE 8 / 8",
-  "COLLECT THE NONSENSE",
+  "CLAIM THE SMUGNESS",
   "RELEASE THE FIREWORKS",
-  "CLAIM RIDICULOUS BEHAVIOUR",
-  "UNLOCK DOMESTIC DOMINATION",
   "SHOW ME THE DAMAGE",
-  "MAKE IT LOUD",
+  "UNLOCK DOMESTIC DOMINATION",
   "PLAY THE OVERREACTION",
-  "CASH IN THE CHAOS"
+  "MAKE IT LOUD",
+  "COLLECT THE NONSENSE"
 ] as const;
 
 export interface CoupleClaimCopy {

@@ -19,7 +19,8 @@ export function CoupleClaimCard({ achievement, state, viewer, claiming, preview 
   return (
     <main className={preview ? "claim-gate claim-gate-preview" : "claim-gate"} aria-labelledby="couple-claim-title">
       <div className="claim-grid" aria-hidden="true" />
-      <section className="couple-claim-card">
+      <section className="couple-claim-card reward-crate">
+        <div className="claim-arm-strip" aria-hidden="true"><span />REWARD CRATE // ARMED<span /></div>
         <div className="claim-crown" aria-hidden="true">
           <Crown />
         </div>
@@ -37,6 +38,9 @@ export function CoupleClaimCard({ achievement, state, viewer, claiming, preview 
           <Flame aria-hidden="true" />
           {claiming ? "ARMING THE OVERREACTION..." : copy.button}
         </button>
+        <div className="claim-crate-status" aria-hidden="true">
+          <span>COUPLE REWARD</span><b>UNCLAIMED</b><span>FULL VOLUME</span>
+        </div>
       </section>
     </main>
   );

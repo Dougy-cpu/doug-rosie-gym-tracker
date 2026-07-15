@@ -13,7 +13,13 @@ import {
 
 const normalControls: RewardExplosionControls = {
   ...defaultRewardExplosionControls,
-  particleIntensity: "normal"
+  quality: "normal",
+  particleIntensity: "normal",
+  shardIntensity: "normal",
+  fireworkIntensity: "normal",
+  smokeIntensity: "normal",
+  shockwaveIntensity: "normal",
+  distortionIntensity: "normal"
 };
 
 describe("reward explosion profiles", () => {
@@ -47,10 +53,14 @@ describe("reward explosion profiles", () => {
   });
 
   it("supports low through ridiculous quality without changing duration", () => {
-    const low = getRewardExplosionProfile("daily", { ...normalControls, particleIntensity: "low" });
+    const low = getRewardExplosionProfile("daily", { ...normalControls, quality: "low", particleIntensity: "low" });
     const normal = getRewardExplosionProfile("daily", normalControls);
-    const high = getRewardExplosionProfile("daily", { ...normalControls, particleIntensity: "high" });
-    const ridiculous = getRewardExplosionProfile("daily", { ...normalControls, particleIntensity: "ridiculous" });
+    const high = getRewardExplosionProfile("daily", { ...normalControls, quality: "high", particleIntensity: "high" });
+    const ridiculous = getRewardExplosionProfile("daily", {
+      ...normalControls,
+      quality: "ridiculous",
+      particleIntensity: "ridiculous"
+    });
 
     assert.ok(low.counts.sparks < normal.counts.sparks);
     assert.ok(normal.counts.sparks < high.counts.sparks);
@@ -60,9 +70,13 @@ describe("reward explosion profiles", () => {
   });
 
   it("creates weekly and couple epicentres on-screen and beyond every viewport edge", () => {
+    const first = getRewardEpicentres("first", 400, 800, { x: 200, y: 520 });
     const weekly = getRewardEpicentres("weekly", 400, 800, null);
     const couple = getRewardEpicentres("couple", 400, 800, null);
 
+    assert.ok(first.some((point) => point.id === "top-left-viewport"));
+    assert.ok(first.some((point) => point.id === "top-right-viewport"));
+    assert.ok(first.some((point) => point.offscreen));
     assert.ok(weekly.some((point) => point.x < 0));
     assert.ok(weekly.some((point) => point.x > 400));
     assert.ok(couple.some((point) => point.id === "doug-side"));
@@ -87,8 +101,34 @@ describe("reward explosion profiles", () => {
 
     assert.ok(weeklyTimeline.some((event) => event.kind === "firework" && event.atMs > weekly.durationMs * 0.7));
     assert.ok(coupleTimeline.some((event) => event.kind === "firework" && event.atMs > couple.durationMs * 0.8));
+    assert.ok(weeklyTimeline.some((event) => event.kind === "rain" && event.atMs > weekly.durationMs * 0.6));
+    assert.ok(coupleTimeline.some((event) => event.kind === "rain" && event.atMs > couple.durationMs * 0.75));
     assert.equal(weeklyTimeline.at(-1)?.kind, "final");
     assert.equal(coupleTimeline.at(-1)?.kind, "final");
+  });
+
+  it("tunes heavy particle systems independently", () => {
+    const noShards = getRewardExplosionProfile("couple", { ...normalControls, shardIntensity: "off" });
+    const noSmoke = getRewardExplosionProfile("couple", { ...normalControls, smokeIntensity: "off" });
+    const noFireworks = getRewardExplosionProfile("couple", { ...normalControls, fireworkIntensity: "off" });
+
+    assert.equal(noShards.counts.shards, 0);
+    assert.equal(noSmoke.counts.smoke, 0);
+    assert.equal(noFireworks.counts.fireworks, 0);
+  });
+
+  it("keeps high-quality shard budgets inside the requested rupture ranges", () => {
+    const highControls: RewardExplosionControls = {
+      ...normalControls,
+      quality: "high",
+      particleIntensity: "high",
+      shardIntensity: "high"
+    };
+
+    assert.ok(inRange(getRewardExplosionProfile("daily", highControls).counts.shards, 40, 100));
+    assert.ok(inRange(getRewardExplosionProfile("first", highControls).counts.shards, 80, 140));
+    assert.ok(inRange(getRewardExplosionProfile("weekly", highControls).counts.shards, 150, 250));
+    assert.ok(inRange(getRewardExplosionProfile("couple", highControls).counts.shards, 250, 400));
   });
 
   it("maps every workout milestone to its intended effect", () => {
@@ -114,3 +154,7 @@ describe("reward explosion profiles", () => {
     );
   });
 });
+
+function inRange(value: number, minimum: number, maximum: number): boolean {
+  return value >= minimum && value <= maximum;
+}

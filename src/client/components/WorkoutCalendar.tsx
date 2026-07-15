@@ -3,8 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { compareIsoDates } from "../../shared/date.js";
 import type { CalendarDay } from "../../shared/date.js";
 import type { UserSlug } from "../../shared/types.js";
-import { createHoldGestureController, type HoldGestureController, type HoldHapticMilestone } from "../holdGesture";
-import { HOLD_TO_CONFIRM_MS } from "./HoldToLogTile";
+import {
+  createHoldGestureController,
+  HOLD_TO_CONFIRM_MS,
+  type HoldGestureController,
+  type HoldHapticMilestone
+} from "../holdGesture";
 
 interface PersonalCalendarProps {
   days: CalendarDay[];
@@ -97,7 +101,8 @@ function HoldCalendarDayButton({
   onHoldCancel: () => void;
   onHoldPressurePulse: (milestone: HoldHapticMilestone) => void;
 }) {
-  const [progress, setProgress] = useState(0);
+  const [holding, setHolding] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const controllerRef = useRef<HoldGestureController | null>(null);
 
   useEffect(() => {
@@ -112,15 +117,23 @@ function HoldCalendarDayButton({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.style.setProperty("--calendar-hold-progress", "0");
+    setHolding(true);
     onHoldStart();
     controllerRef.current = createHoldGestureController({
       durationMs: CALENDAR_HOLD_DURATION_MS,
       getNow: () => performance.now(),
-      onProgress: setProgress,
+      onProgress: (progress) => buttonRef.current?.style.setProperty("--calendar-hold-progress", String(progress)),
       onMilestone: onHoldPressurePulse,
       requestFrame: (callback) => window.requestAnimationFrame(callback),
       cancelFrame: (frameId) => window.cancelAnimationFrame(frameId),
-      onComplete: async () => onComplete(date)
+      onComplete: async () => {
+        try {
+          onComplete(date);
+        } finally {
+          setHolding(false);
+        }
+      }
     });
     controllerRef.current.start();
   };
@@ -129,14 +142,16 @@ function HoldCalendarDayButton({
     const wasHolding = controllerRef.current?.isHolding() ?? false;
     controllerRef.current?.stop();
     if (wasHolding) {
+      setHolding(false);
       onHoldCancel();
     }
   };
 
   return (
     <button
+      ref={buttonRef}
       aria-label={`${action === "remove" ? "Hold to remove" : "Hold to add"} ${date}`}
-      className={`${className} hold-calendar-day ${progress > 0 ? "holding" : ""} ${action === "remove" ? "calendar-remove-hold" : ""}`}
+      className={`${className} hold-calendar-day ${holding ? "holding" : ""} ${action === "remove" ? "calendar-remove-hold" : ""}`}
       data-calendar-action={action}
       type="button"
       disabled={disabled}
@@ -148,7 +163,7 @@ function HoldCalendarDayButton({
       onLostPointerCapture={stop}
       onBlur={stop}
     >
-      <span className="calendar-hold-progress" style={{ transform: `scaleX(${progress})` }} />
+      <span className="calendar-hold-progress" />
       <span>{dayOfMonth}</span>
       {completed ? <Check aria-hidden="true" /> : null}
     </button>

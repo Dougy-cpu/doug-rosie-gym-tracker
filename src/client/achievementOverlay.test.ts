@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AchievementEvent, TrackerState } from "../shared/types.js";
 import { AchievementOverlay } from "./components/AchievementOverlay.js";
+
+const stylesUrl = new URL("./styles.css", import.meta.url);
 
 const sampleState: TrackerState = {
   viewer: "doug",
@@ -62,6 +65,9 @@ describe("AchievementOverlay", () => {
     assert.match(markup, /--achievement-duration:11154ms/);
     assert.match(markup, /--achievement-lock-at:8366ms/);
     assert.match(markup, /achievement-stage-glow/);
+    assert.match(markup, /badge-slam/);
+    assert.match(markup, /WEEK LOCKED/);
+    assert.match(markup, /achievement-final-wave/);
     assert.doesNotMatch(markup, /particle-field/);
   });
 
@@ -81,7 +87,15 @@ describe("AchievementOverlay", () => {
     assert.match(markup, /achievement-slam-meter/);
     assert.match(markup, /--achievement-duration:30067ms/);
     assert.match(markup, /--achievement-final-at:27060ms/);
+    assert.match(markup, /HOUSEHOLD LOCKED/);
     assert.match(markup, /CHARGING/);
     assert.doesNotMatch(markup, /particle-field/);
+  });
+
+  it("keeps decorative shockwaves from intercepting the dismiss control", async () => {
+    const styles = await readFile(stylesUrl, "utf8");
+
+    assert.match(styles, /\.achievement-shockwave\s*\{[^}]*pointer-events:\s*none/s);
+    assert.match(styles, /\.achievement-stage-glow\s*\{[^}]*pointer-events:\s*none/s);
   });
 });

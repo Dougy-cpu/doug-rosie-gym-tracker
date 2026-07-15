@@ -44,18 +44,19 @@ export function CoupleTracker({ state, muted, onMuteChange, onNavigate }: Couple
 
       <section className="mission-hero couple-hero">
         <div className="hero-grid" aria-hidden="true" />
+        <p className="hero-eyebrow">HOUSEHOLD TARGET // 8 SESSIONS</p>
         <p className="mission-status">
           <ShieldCheck aria-hidden="true" />
-          {tone.headline}
+          {count >= target ? "Household Conquered" : "Household Target"}
         </p>
         <div className="progress-readout">
           <span>{Math.min(count, target)}</span>
           <small>/ {target}</small>
         </div>
         <ProgressSegments value={count} target={target} className="couple-segments" />
-        <div className="couple-bars" aria-label="Doug and Rosie weekly progress">
-          <ProgressMini label="Doug" value={state.counts.doug.week} target={state.counts.doug.target} />
-          <ProgressMini label="Rosie" value={state.counts.rosie.week} target={state.counts.rosie.target} />
+        <div className="couple-scoreboard" aria-label="Doug and Rosie weekly progress">
+          <CoupleScore label="Doug" value={state.counts.doug.week} target={state.counts.doug.target} tone="doug" />
+          <CoupleScore label="Rosie" value={state.counts.rosie.week} target={state.counts.rosie.target} tone="rosie" />
         </div>
       </section>
 
@@ -94,18 +95,23 @@ export function CoupleTracker({ state, muted, onMuteChange, onNavigate }: Couple
   );
 }
 
-function ProgressMini({ label, value, target }: { label: string; value: number; target: number }) {
-  const progress = Math.min(1, value / target);
-
+function CoupleScore({
+  label,
+  value,
+  target,
+  tone
+}: {
+  label: string;
+  value: number;
+  target: number;
+  tone: "doug" | "rosie";
+}) {
   return (
-    <div className="progress-mini">
-      <div>
-        <span>{label}</span>
-        <strong>{value} / {target}</strong>
-      </div>
-      <i>
-        <b style={{ transform: `scaleX(${progress})` }} />
-      </i>
+    <div className={`couple-score ${tone} ${value >= target ? "locked" : ""}`}>
+      <span>{label}</span>
+      <strong>{Math.min(value, target)}<small> / {target}</small></strong>
+      <ProgressSegments value={value} target={target} />
+      <b>{value >= target ? "LOCKED" : `${Math.max(0, target - value)} TO GO`}</b>
     </div>
   );
 }

@@ -10,13 +10,19 @@ describe("sound lab reward tests", () => {
   it("exposes the requested explosion test buttons", async () => {
     const source = await readFile(soundLabUrl, "utf8");
 
-    assert.match(source, /Test Daily Explosion/);
-    assert.match(source, /Test 1\/4 Inertia Explosion/);
-    assert.match(source, /Test 4\/4 Weekly Complete Explosion/);
-    assert.match(source, /Test 8\/8 Couple Mega Explosion/);
-    assert.match(source, /Test Hold Build-Up \+ Rupture/);
+    assert.match(source, /Test Daily Rupture/);
+    assert.match(source, /Test 1\/4 Inertia Rupture/);
+    assert.match(source, /Test 4\/4 Full-Duration Achievement/);
+    assert.match(source, /Test 8\/8 Full-Duration Couple Achievement/);
+    assert.match(source, /Test Full 3-Second Hold Build/);
+    assert.match(source, /Test Cancelled Hold at 25%/);
+    assert.match(source, /Test Cancelled Hold at 60%/);
+    assert.match(source, /Test Multiple Epicentres/);
     assert.match(source, /Test Screen Shake/);
     assert.match(source, /Test Off-Screen Epicentres/);
+    assert.match(source, /Test Distortion Shockwave/);
+    assert.match(source, /Test Badge Slam/);
+    assert.match(source, /Test Mechanical Progress Locks/);
     assert.match(source, /Test Couple Claim Modal/);
     assert.match(source, /Test Particle Stress/);
     assert.doesNotMatch(source, /Daily animation test/);
@@ -61,11 +67,17 @@ describe("sound lab reward tests", () => {
     assert.match(source, /actual/);
   });
 
-  it("exposes the requested particle, shake, flash, trigger and reduced-motion controls", async () => {
+  it("exposes independent quality, particle-system, shake, flash and reduced-motion controls", async () => {
     const source = await readFile(soundLabUrl, "utf8");
 
     assert.match(source, /HOLD_TO_CONFIRM_MS = 3000/);
+    assert.match(source, /Quality level/);
     assert.match(source, /Particle intensity/);
+    assert.match(source, /Shard intensity/);
+    assert.match(source, /Firework intensity/);
+    assert.match(source, /Smoke intensity/);
+    assert.match(source, /Shockwave intensity/);
+    assert.match(source, /Distortion intensity/);
     assert.match(source, /Screen shake/);
     assert.match(source, /Flash intensity/);
     assert.match(source, /Show trigger point/);
@@ -73,10 +85,11 @@ describe("sound lab reward tests", () => {
     assert.match(source, /Ridiculous/);
     assert.match(source, /Low/);
     assert.match(source, /Vibration API/);
-    assert.match(source, /Test vibration pulse/);
+    assert.match(source, /Test vibration support/);
     assert.match(source, /Test progressive 3-second hold/);
     assert.match(source, /Frame time \/ FPS/);
     assert.match(source, /Active particles/);
+    assert.match(source, /Dynamic throttling/);
     assert.match(source, /Current audio duration/);
     assert.match(source, /Play level-up-track\.mp3/);
   });

@@ -5,6 +5,9 @@ import type React from "react";
 import { cancelHoldTileClickActivation } from "./components/HoldToLogTile.js";
 
 const holdTileUrl = new URL("./components/HoldToLogTile.tsx", import.meta.url);
+const holdGestureUrl = new URL("./holdGesture.ts", import.meta.url);
+const crackOverlayUrl = new URL("./components/CrackOverlay.tsx", import.meta.url);
+const shatterBurstUrl = new URL("./components/ShatterBurst.tsx", import.meta.url);
 
 describe("HoldToLogTile", () => {
   it("uses click as a final cancellation gate when pointer release is missed", () => {
@@ -33,9 +36,11 @@ describe("HoldToLogTile", () => {
 
   it("defines the hold timing once as HOLD_TO_CONFIRM_MS", async () => {
     const source = await readFile(holdTileUrl, "utf8");
+    const gestureSource = await readFile(holdGestureUrl, "utf8");
 
-    assert.match(source, /export const HOLD_TO_CONFIRM_MS = 3000/);
+    assert.match(gestureSource, /export const HOLD_TO_CONFIRM_MS = 3000/);
     assert.doesNotMatch(source, /HOLD_TO_LOG_DURATION_MS/);
+    assert.doesNotMatch(source, /const HOLD_TO_CONFIRM_MS = 3000/);
     assert.match(source, /durationMs: HOLD_TO_CONFIRM_MS/);
   });
 
@@ -54,11 +59,23 @@ describe("HoldToLogTile", () => {
 
   it("renders crack and shatter layers for the pressure hold", async () => {
     const source = await readFile(holdTileUrl, "utf8");
+    const crackSource = await readFile(crackOverlayUrl, "utf8");
+    const shatterSource = await readFile(shatterBurstUrl, "utf8");
 
     assert.match(source, /CrackOverlay/);
     assert.match(source, /ShatterBurst/);
-    assert.match(source, /hold-crack-overlay/);
-    assert.match(source, /hold-shatter-burst/);
+    assert.match(crackSource, /hold-crack-overlay/);
+    assert.match(crackSource, /pathLength="1"/);
+    assert.match(crackSource, /crack-intersections/);
+    assert.match(shatterSource, /hold-shatter-burst/);
+    assert.match(shatterSource, /surfaceFragments/);
+  });
+
+  it("moves frame-by-frame progress into CSS variables instead of React state", async () => {
+    const source = await readFile(holdTileUrl, "utf8");
+
+    assert.match(source, /style\.setProperty\("--hold-progress-ratio"/);
+    assert.doesNotMatch(source, /setProgress\(/);
   });
 
   it("captures the tile center as the reward explosion origin", async () => {

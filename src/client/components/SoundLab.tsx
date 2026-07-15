@@ -10,10 +10,12 @@ import {
   type FlashIntensity,
   type ParticleIntensity,
   type RewardEffectMetrics,
+  type RewardEffectQuality,
   type RewardExplosionControls,
   type RewardExplosionKind,
   type RewardExplosionOrigin,
   type RewardExplosionTiming,
+  type RewardIntensityLevel,
   type ScreenShakeLevel
 } from "../rewardExplosion";
 import {
@@ -31,8 +33,10 @@ import {
 import { MuteToggle } from "./MuteToggle";
 import { AchievementOverlay } from "./AchievementOverlay";
 import { CoupleClaimCard } from "./CoupleClaimCard";
-import { getHoldHapticPattern, holdHapticMilestones } from "../holdGesture";
-import { HOLD_TO_CONFIRM_MS } from "./HoldToLogTile";
+import { getHoldHapticPattern, HOLD_TO_CONFIRM_MS, holdHapticMilestones } from "../holdGesture";
+import { getHoldStage, type HoldStage } from "./HoldToLogTile";
+import { CrackOverlay, SparkLeak } from "./CrackOverlay";
+import { ShatterBurst } from "./ShatterBurst";
 import { ProgressSegments } from "./ProgressSegments";
 import type { FeedbackPlaybackResult } from "../useFeedback";
 
@@ -112,6 +116,16 @@ interface AssetResolutionStatus {
 type AssetStatusMap = Partial<Record<FeedbackSound, AssetResolutionStatus>>;
 const holdConstantLabel = "HOLD_TO_CONFIRM_MS = 3000";
 const testedSounds = Array.from(new Set(soundTests.map((test) => test.sound)));
+const qualityOptions: Array<{ label: string; value: RewardEffectQuality }> = [
+  { label: "Low", value: "low" },
+  { label: "Normal", value: "normal" },
+  { label: "High", value: "high" },
+  { label: "Ridiculous", value: "ridiculous" }
+];
+const intensityOptions: Array<{ label: string; value: RewardIntensityLevel }> = [
+  { label: "Off", value: "off" },
+  ...qualityOptions
+];
 
 export function SoundLab({
   muted,
@@ -132,10 +146,20 @@ export function SoundLab({
   const [claimPreview, setClaimPreview] = useState(false);
   const [lastPlayback, setLastPlayback] = useState<FeedbackPlaybackResult | null>(null);
   const [progressiveHapticsRunning, setProgressiveHapticsRunning] = useState(false);
-  const hapticTimersRef = useRef<number[]>([]);
+  const holdPreviewRafRef = useRef<number | null>(null);
+  const previewResetTimerRef = useRef<number | null>(null);
+  const lockTimersRef = useRef<number[]>([]);
+  const ruptureSurfaceRef = useRef<HTMLElement | null>(null);
   const [assetStatuses, setAssetStatuses] = useState<AssetStatusMap>(() => createInitialAssetStatuses());
-  const [holdPreviewProgress, setHoldPreviewProgress] = useState(0);
+  const [holdPreviewStage, setHoldPreviewStage] = useState<HoldStage>("idle");
+  const [mechanicalLockCount, setMechanicalLockCount] = useState(3);
+  const [quality, setQuality] = useState<RewardEffectQuality>(defaultRewardExplosionControls.quality);
   const [particleIntensity, setParticleIntensity] = useState<ParticleIntensity>(defaultRewardExplosionControls.particleIntensity);
+  const [shardIntensity, setShardIntensity] = useState<RewardIntensityLevel>(defaultRewardExplosionControls.shardIntensity);
+  const [fireworkIntensity, setFireworkIntensity] = useState<RewardIntensityLevel>(defaultRewardExplosionControls.fireworkIntensity);
+  const [smokeIntensity, setSmokeIntensity] = useState<RewardIntensityLevel>(defaultRewardExplosionControls.smokeIntensity);
+  const [shockwaveIntensity, setShockwaveIntensity] = useState<RewardIntensityLevel>(defaultRewardExplosionControls.shockwaveIntensity);
+  const [distortionIntensity, setDistortionIntensity] = useState<RewardIntensityLevel>(defaultRewardExplosionControls.distortionIntensity);
   const [screenShake, setScreenShake] = useState<ScreenShakeLevel>(defaultRewardExplosionControls.screenShake);
   const [flashIntensity, setFlashIntensity] = useState<FlashIntensity>(defaultRewardExplosionControls.flashIntensity);
   const [showTriggerPoint, setShowTriggerPoint] = useState(defaultRewardExplosionControls.showTriggerPoint);
@@ -143,13 +167,31 @@ export function SoundLab({
 
   const explosionControls = useMemo<RewardExplosionControls>(
     () => ({
+      quality,
       particleIntensity,
+      shardIntensity,
+      fireworkIntensity,
+      smokeIntensity,
+      shockwaveIntensity,
+      distortionIntensity,
       screenShake,
       flashIntensity,
       showTriggerPoint,
       reducedMotionPreview
     }),
-    [flashIntensity, particleIntensity, reducedMotionPreview, screenShake, showTriggerPoint]
+    [
+      distortionIntensity,
+      fireworkIntensity,
+      flashIntensity,
+      particleIntensity,
+      quality,
+      reducedMotionPreview,
+      screenShake,
+      shardIntensity,
+      shockwaveIntensity,
+      showTriggerPoint,
+      smokeIntensity
+    ]
   );
   const soundResolutionEntries = soundTests.map((test) => {
     const candidates = getRewardSoundCandidates(test.sound);
@@ -175,6 +217,8 @@ export function SoundLab({
     (asset): asset is RewardSoundAssetCandidate | ResolvedFeedbackSoundAsset =>
       asset?.sourceFile === "level-up-track.mp3" && asset.source === "fallback-specific-missing"
   );
+  const demoShattering = /reward-(daily|first|momentum|pressure|complete)/.test(demoReward) && !demoReward.includes("hold-preview-building");
+  const demoHolding = holdPreviewStage !== "idle" && demoReward.includes("hold-preview-building");
 
   useEffect(() => {
     let cancelled = false;
@@ -197,8 +241,14 @@ export function SoundLab({
 
   useEffect(() => {
     return () => {
-      for (const timerId of hapticTimersRef.current) {
+      for (const timerId of lockTimersRef.current) {
         window.clearTimeout(timerId);
+      }
+      if (previewResetTimerRef.current !== null) {
+        window.clearTimeout(previewResetTimerRef.current);
+      }
+      if (holdPreviewRafRef.current !== null) {
+        window.cancelAnimationFrame(holdPreviewRafRef.current);
       }
     };
   }, []);
@@ -218,14 +268,33 @@ export function SoundLab({
     };
   }, [assetStatuses]);
 
+  const setPreviewProgress = (progress: number) => {
+    ruptureSurfaceRef.current?.style.setProperty("--hold-progress-ratio", String(progress));
+    ruptureSurfaceRef.current?.style.setProperty("--hold-progress-percent", `${Math.round(progress * 100)}%`);
+    const nextStage = getHoldStage(progress, progress > 0);
+    setHoldPreviewStage((current) => (current === nextStage ? current : nextStage));
+  };
+
+  const resetHoldPreview = () => {
+    if (holdPreviewRafRef.current !== null) {
+      window.cancelAnimationFrame(holdPreviewRafRef.current);
+      holdPreviewRafRef.current = null;
+    }
+    if (previewResetTimerRef.current !== null) {
+      window.clearTimeout(previewResetTimerRef.current);
+      previewResetTimerRef.current = null;
+    }
+    setDemoReward("reward-none");
+    setProgressiveHapticsRunning(false);
+    setPreviewProgress(0);
+  };
+
   const previewHold = (progress: number, durationMs = 1300, rewardClass = "reward-daily") => {
-    setHoldPreviewProgress(progress);
+    resetHoldPreview();
+    setPreviewProgress(progress);
     setDemoReward(`reward-hold-preview ${rewardClass}`);
     setDemoRewardDurationMs(durationMs);
-    window.setTimeout(() => {
-      setDemoReward("reward-none");
-      setHoldPreviewProgress(0);
-    }, durationMs);
+    previewResetTimerRef.current = window.setTimeout(resetHoldPreview, durationMs);
   };
 
   const triggerExplosion = async (
@@ -256,30 +325,66 @@ export function SoundLab({
     }
   };
 
-  const triggerHoldBuildUp = (event: MouseEvent<HTMLButtonElement>) => {
-    for (const timerId of hapticTimersRef.current) {
-      window.clearTimeout(timerId);
-    }
-    hapticTimersRef.current = [];
-    const origin = getOriginFromElement(event.currentTarget);
-    previewHold(1, HOLD_TO_CONFIRM_MS + 900, "reward-complete");
-    void onPlay("hold-charge");
+  const runHoldPreview = (event: MouseEvent<HTMLButtonElement>, stopAt: number) => {
+    resetHoldPreview();
+    const origin = getOriginFromElement(ruptureSurfaceRef.current) ?? getOriginFromElement(event.currentTarget);
+    const startedAt = performance.now();
+    const firedMilestones = new Set<string>();
+    setDemoReward("reward-hold-preview hold-preview-building");
+    setDemoRewardDurationMs(HOLD_TO_CONFIRM_MS);
     setProgressiveHapticsRunning(true);
-    for (const milestone of holdHapticMilestones) {
-      hapticTimersRef.current.push(
-        window.setTimeout(() => onVibrate(getHoldHapticPattern(milestone.milestone)), milestone.progress * HOLD_TO_CONFIRM_MS)
-      );
-    }
-    hapticTimersRef.current.push(window.setTimeout(async () => {
-      const playback = await onPlay("daily");
-      setLastPlayback(playback);
-      onExplode("hold", origin, explosionControls, {
-        audioDurationMs: playback.durationMs,
-        durationSource: playback.durationSource
+    void onPlay("hold-charge");
+
+    const frame = (now: number) => {
+      const progress = Math.min(stopAt, (now - startedAt) / HOLD_TO_CONFIRM_MS);
+      setPreviewProgress(progress);
+      for (const milestone of holdHapticMilestones) {
+        if (progress >= milestone.progress && !firedMilestones.has(milestone.milestone)) {
+          firedMilestones.add(milestone.milestone);
+          onVibrate(getHoldHapticPattern(milestone.milestone));
+        }
+      }
+
+      if (progress < stopAt) {
+        holdPreviewRafRef.current = window.requestAnimationFrame(frame);
+        return;
+      }
+
+      holdPreviewRafRef.current = null;
+      if (stopAt < 1) {
+        setDemoReward("reward-hold-cancelled");
+        setProgressiveHapticsRunning(false);
+        void onPlay("hold-cancel");
+        previewResetTimerRef.current = window.setTimeout(resetHoldPreview, 780);
+        return;
+      }
+
+      setDemoReward("reward-hold-preview reward-daily");
+      void onPlay("daily").then((playback) => {
+        setLastPlayback(playback);
+        setDemoRewardDurationMs(playback.durationMs);
+        onExplode("daily", origin, explosionControls, {
+          audioDurationMs: playback.durationMs,
+          durationSource: playback.durationSource
+        });
+        onVibrate(getWorkoutFeedback({ countAfter: 1, created: true }).haptic);
+        setProgressiveHapticsRunning(false);
+        previewResetTimerRef.current = window.setTimeout(resetHoldPreview, playback.durationMs);
       });
-      onVibrate(getWorkoutFeedback({ countAfter: 1, created: true }).haptic);
-      setProgressiveHapticsRunning(false);
-    }, HOLD_TO_CONFIRM_MS));
+    };
+
+    holdPreviewRafRef.current = window.requestAnimationFrame(frame);
+  };
+
+  const runMechanicalLockTest = () => {
+    for (const timer of lockTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    lockTimersRef.current = [];
+    setMechanicalLockCount(0);
+    [1, 2, 3, 4].forEach((value, index) => {
+      lockTimersRef.current.push(window.setTimeout(() => setMechanicalLockCount(value), 260 + index * 440));
+    });
   };
 
   const playCoupleClaimPreview = async () => {
@@ -369,7 +474,11 @@ export function SoundLab({
           <StatusPill
             label="Frame time / FPS"
             value={effectMetrics.active ? `${effectMetrics.averageFrameMs}ms / ${effectMetrics.fps} FPS` : "idle"}
-            detail={effectMetrics.performanceGuardActive ? "Spawn rate reduced by the performance guard" : "Adaptive spawn guard ready"}
+            detail={
+              effectMetrics.performanceGuardActive
+                ? `Dynamic throttling active / spawn ${Math.round(effectMetrics.spawnScale * 100)}%`
+                : `Dynamic throttling idle / spawn ${Math.round(effectMetrics.spawnScale * 100)}%`
+            }
           />
           <StatusPill
             label="Active particles"
@@ -392,9 +501,9 @@ export function SoundLab({
         ) : null}
         <div className="lab-inline-actions">
           <button type="button" onClick={() => onVibrate(35)}>
-            <Vibrate aria-hidden="true" /> Test vibration pulse
+            <Vibrate aria-hidden="true" /> Test vibration support
           </button>
-          <button type="button" disabled={progressiveHapticsRunning} onClick={(event) => triggerHoldBuildUp(event)}>
+          <button type="button" disabled={progressiveHapticsRunning} onClick={(event) => runHoldPreview(event, 1)}>
             <HeartPulse aria-hidden="true" /> {progressiveHapticsRunning ? "Progressive hold running" : "Test progressive 3-second hold"}
           </button>
         </div>
@@ -405,17 +514,18 @@ export function SoundLab({
           <h2>Explosion controls</h2>
           <span>Canvas particle system</span>
         </div>
+        <SegmentedControl label="Quality level" value={quality} options={qualityOptions} onChange={setQuality} />
         <SegmentedControl
           label="Particle intensity"
           value={particleIntensity}
-          options={[
-            { label: "Low", value: "low" },
-            { label: "Normal", value: "normal" },
-            { label: "High", value: "high" },
-            { label: "Ridiculous", value: "ridiculous" }
-          ]}
+          options={qualityOptions}
           onChange={setParticleIntensity}
         />
+        <SegmentedControl label="Shard intensity" value={shardIntensity} options={intensityOptions} onChange={setShardIntensity} />
+        <SegmentedControl label="Firework intensity" value={fireworkIntensity} options={intensityOptions} onChange={setFireworkIntensity} />
+        <SegmentedControl label="Smoke intensity" value={smokeIntensity} options={intensityOptions} onChange={setSmokeIntensity} />
+        <SegmentedControl label="Shockwave intensity" value={shockwaveIntensity} options={intensityOptions} onChange={setShockwaveIntensity} />
+        <SegmentedControl label="Distortion intensity" value={distortionIntensity} options={intensityOptions} onChange={setDistortionIntensity} />
         <SegmentedControl
           label="Screen shake"
           value={screenShake}
@@ -431,8 +541,10 @@ export function SoundLab({
           label="Flash intensity"
           value={flashIntensity}
           options={[
+            { label: "Off", value: "off" },
             { label: "Normal", value: "normal" },
-            { label: "High", value: "high" }
+            { label: "High", value: "high" },
+            { label: "Ridiculous", value: "ridiculous" }
           ]}
           onChange={setFlashIntensity}
         />
@@ -443,34 +555,35 @@ export function SoundLab({
       </section>
 
       <section
-        className={`lab-reward-card lab-rupture-surface ${demoReward}`}
+        ref={ruptureSurfaceRef}
+        className={[
+          "lab-reward-card",
+          "lab-rupture-surface",
+          `hold-stage-${holdPreviewStage}`,
+          demoHolding ? "holding" : "",
+          demoShattering ? "shattering" : "",
+          demoReward
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={
           {
             "--reward-duration": `${demoRewardDurationMs}ms`,
-            "--hold-progress-ratio": holdPreviewProgress
+            "--hold-progress-ratio": 0,
+            "--hold-progress-percent": "0%"
           } as CSSProperties
         }
       >
         <span className="hold-shockwave" aria-hidden="true" />
-        <span className="hold-crack-overlay lab-crack-preview" aria-hidden="true" style={{ "--crack-intensity": holdPreviewProgress } as CSSProperties}>
-          {Array.from({ length: 13 }, (_, index) => (
-            <i
-              key={index}
-              style={
-                {
-                  "--crack-left": `${24 + (index % 5) * 12}%`,
-                  "--crack-top": `${18 + index * 5}%`,
-                  "--crack-rotate": `${index % 2 === 0 ? -30 - index * 2 : 34 + index * 2}deg`,
-                  "--crack-length": `${32 + index * 5}px`,
-                  "--crack-delay": `${index * 28}ms`
-                } as CSSProperties
-              }
-            />
-          ))}
-        </span>
+        <CrackOverlay active={demoHolding || demoShattering} />
+        <SparkLeak active={demoHolding || demoShattering} />
+        <ShatterBurst active={demoShattering} intensity="weekly" />
         <HeartPulse aria-hidden="true" />
-        <strong>Rupture preview surface</strong>
-        <small>Use the test buttons below to smash this style of card apart.</small>
+        <strong>{holdPreviewStage === "idle" ? "Rupture preview surface" : getHoldStageLabelForLab(holdPreviewStage)}</strong>
+        <small>LIVE HOLD DAMAGE // {holdPreviewStage.replaceAll("-", " ")}</small>
+        <div className="lab-lock-preview">
+          <ProgressSegments value={mechanicalLockCount} target={4} />
+        </div>
       </section>
 
       <section className="section">
@@ -488,7 +601,7 @@ export function SoundLab({
             }}
           >
             <Bolt />
-            <span>Test Daily Explosion</span>
+            <span>Test Daily Rupture</span>
             <small>Tile centre plus two secondary epicentres</small>
           </button>
           <button
@@ -500,7 +613,7 @@ export function SoundLab({
             }}
           >
             <Zap />
-            <span>Test 1/4 Inertia Explosion</span>
+            <span>Test 1/4 Inertia Rupture</span>
             <small>High-quality staged rupture</small>
           </button>
           <button
@@ -516,7 +629,7 @@ export function SoundLab({
             }}
           >
             <ShieldCheck />
-            <span>Test 4/4 Weekly Complete Explosion</span>
+            <span>Test 4/4 Full-Duration Achievement</span>
             <small>{formatAssetSummary(individualAsset)} / full audio timeline</small>
           </button>
           <button
@@ -532,13 +645,36 @@ export function SoundLab({
             }}
           >
             <Sparkles />
-            <span>Test 8/8 Couple Mega Explosion</span>
+            <span>Test 8/8 Full-Duration Couple Achievement</span>
             <small>{formatAssetSummary(coupleAsset)} / full audio timeline + off-screen bursts</small>
           </button>
-          <button className="lab-test-button mega-test" type="button" onClick={triggerHoldBuildUp}>
+          <button className="lab-test-button mega-test" type="button" onClick={(event) => runHoldPreview(event, 1)}>
             <Flame />
-            <span>Test Hold Build-Up + Rupture</span>
+            <span>Test Full 3-Second Hold Build</span>
             <small>Crack glow for 3000ms, then blast</small>
+          </button>
+          <button className="lab-test-button mega-test" type="button" onClick={(event) => runHoldPreview(event, 0.25)}>
+            <Flame />
+            <span>Test Cancelled Hold at 25%</span>
+            <small>Early pressure release and clean reset</small>
+          </button>
+          <button className="lab-test-button mega-test" type="button" onClick={(event) => runHoldPreview(event, 0.6)}>
+            <Flame />
+            <span>Test Cancelled Hold at 60%</span>
+            <small>Visible cracks, unstable surface, then abort</small>
+          </button>
+          <button
+            className="lab-test-button mega-test"
+            type="button"
+            onClick={(event) =>
+              triggerExplosion(event, "target", {
+                forceControls: { showTriggerPoint: true, particleIntensity: particleIntensity === "low" ? "normal" : particleIntensity }
+              })
+            }
+          >
+            <Sparkles />
+            <span>Test Multiple Epicentres</span>
+            <small>Badge, edges, bottom and random viewport bursts</small>
           </button>
           <button
             className="lab-test-button mega-test"
@@ -567,6 +703,40 @@ export function SoundLab({
             <span>Test Off-Screen Epicentres</span>
             <small>Rings and streaks enter from every viewport edge</small>
           </button>
+          <button
+            className="lab-test-button mega-test"
+            type="button"
+            onClick={(event) =>
+              triggerExplosion(event, "daily", {
+                forceControls: {
+                  distortionIntensity: "ridiculous",
+                  particleIntensity: "low",
+                  shardIntensity: "off",
+                  fireworkIntensity: "off",
+                  smokeIntensity: "off",
+                  shockwaveIntensity: "high"
+                }
+              })
+            }
+          >
+            <Gauge />
+            <span>Test Distortion Shockwave</span>
+            <small>Chromatic radial blast and app-wrapper recoil</small>
+          </button>
+          <button
+            className="lab-test-button mega-test"
+            type="button"
+            onClick={() => setOverlay({ kind: "individual", durationMs: 6000 })}
+          >
+            <ShieldCheck />
+            <span>Test Badge Slam</span>
+            <small>Oversized impact, recoil and final lock</small>
+          </button>
+          <button className="lab-test-button mega-test" type="button" onClick={runMechanicalLockTest}>
+            <BadgeCheck />
+            <span>Test Mechanical Progress Locks</span>
+            <small>Slams all four weekly segments into place</small>
+          </button>
           <button className="lab-test-button mega-test couple-mega-test" type="button" onClick={() => setClaimPreview(true)}>
             <ShieldCheck />
             <span>Test Couple Claim Modal</span>
@@ -579,7 +749,17 @@ export function SoundLab({
               triggerExplosion(event, "stress", {
                 sound: "couple-complete",
                 haptic: getAchievementFeedback("couple_week_complete").haptic,
-                forceControls: { particleIntensity: "ridiculous", screenShake: "ridiculous", flashIntensity: "high" }
+                forceControls: {
+                  quality: "ridiculous",
+                  particleIntensity: "ridiculous",
+                  shardIntensity: "ridiculous",
+                  fireworkIntensity: "ridiculous",
+                  smokeIntensity: "high",
+                  shockwaveIntensity: "ridiculous",
+                  distortionIntensity: "ridiculous",
+                  screenShake: "ridiculous",
+                  flashIntensity: "ridiculous"
+                }
               })
             }
           >
@@ -729,6 +909,14 @@ function getResolvedOrDefaultAsset(sound: FeedbackSound, assetStatuses: AssetSta
 
 function formatAssetSummary(asset: RewardSoundAssetCandidate | ResolvedFeedbackSoundAsset | null): string {
   return asset ? `${asset.sourceFile} / ${asset.source}` : "synthetic-heavy-impact";
+}
+
+function getHoldStageLabelForLab(stage: HoldStage): string {
+  if (stage === "initial-lock" || stage === "pressure-build") return "Locking...";
+  if (stage === "cracking") return "Pressure building";
+  if (stage === "unstable") return "Do not let go";
+  if (stage === "final-warning") return "Rupture imminent";
+  return "Rupture preview surface";
 }
 
 const sampleState: TrackerState = {

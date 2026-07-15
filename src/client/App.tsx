@@ -7,6 +7,7 @@ import { AchievementOverlay } from "./components/AchievementOverlay";
 import { BottomNav } from "./components/BottomNav";
 import { CoupleClaimCard } from "./components/CoupleClaimCard";
 import { CoupleTracker } from "./components/CoupleTracker";
+import { DistortionShockwave } from "./components/DistortionShockwave";
 import { PersonalTracker } from "./components/PersonalTracker";
 import { RewardExplosionCanvas } from "./components/RewardExplosionCanvas";
 import { SoundLab } from "./components/SoundLab";
@@ -37,11 +38,12 @@ const initialEffectMetrics: RewardEffectMetrics = {
   activeParticles: 0,
   averageFrameMs: 0,
   fps: 0,
-  quality: defaultRewardExplosionControls.particleIntensity,
+  quality: defaultRewardExplosionControls.quality,
   durationMs: 0,
   durationSource: "fixed",
   progress: 0,
-  performanceGuardActive: false
+  performanceGuardActive: false,
+  spawnScale: 1
 };
 
 export function App() {
@@ -453,7 +455,9 @@ export function App() {
         .filter(Boolean)
         .join(" ")}
     >
-      {content}
+      <div className="app-surface">
+        {content}
+      </div>
       {!pendingClaim ? <BottomNav current={route} onNavigate={navigate} /> : null}
       {activeAchievement && state && viewerUser ? (
         <AchievementOverlay
@@ -466,9 +470,10 @@ export function App() {
       ) : null}
       <RewardExplosionCanvas
         request={explosionRequest}
-        onMetrics={setEffectMetrics}
+        onMetrics={route === "sound-lab" ? setEffectMetrics : undefined}
         onComplete={() => setExplosionRequest(null)}
       />
+      <DistortionShockwave request={explosionRequest} />
     </div>
   );
 }

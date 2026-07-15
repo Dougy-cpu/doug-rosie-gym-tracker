@@ -8,6 +8,8 @@ interface HoldGestureOptions {
   cancelFrame: (frameId: number) => void;
 }
 
+export const HOLD_TO_CONFIRM_MS = 3000;
+
 export type HoldHapticMilestone = "600ms" | "1200ms" | "1800ms" | "2400ms";
 
 export const holdHapticMilestones: Array<{ progress: number; milestone: HoldHapticMilestone; pattern: number | number[] }> = [

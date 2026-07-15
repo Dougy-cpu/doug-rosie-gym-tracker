@@ -23,8 +23,10 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /"shard"/);
     assert.match(source, /"ember"/);
     assert.match(source, /"smoke"/);
+    assert.match(source, /"rain"/);
     assert.match(source, /shockwaves\.push/);
     assert.match(source, /drawScreenFlashes/);
+    assert.match(source, /chromaticOffset/);
   });
 
   it("uses pooling, visibility pausing and an adaptive frame-time guard", async () => {
@@ -39,13 +41,13 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /onMetricsRef/);
   });
 
-  it("supports multiple epicentres and aggressive shell shake cleanup", async () => {
+  it("supports multiple epicentres and isolates shake from fixed overlays", async () => {
     const source = await readFile(canvasUrl, "utf8");
 
     assert.match(source, /activeRequest\.origin/);
     assert.match(source, /getRewardEpicentres/);
     assert.match(source, /buildRewardBurstTimeline/);
-    assert.match(source, /querySelector\("\.app-shell"\)/);
+    assert.match(source, /querySelector\("\.app-surface"\)/);
     assert.match(source, /classList\.add\(shakeClass\)/);
     assert.match(source, /classList\.remove\(shakeClass\)/);
   });

@@ -1,5 +1,6 @@
 import { Crown, ShieldCheck, Trophy } from "lucide-react";
 import { type CSSProperties, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { getDeterministicQuote } from "../../content/quotes.js";
 import type { AchievementEvent, TrackerState, UserSlug } from "../../shared/types.js";
 import { getAchievementFeedback } from "../rewardFeedback";
@@ -38,7 +39,7 @@ export function AchievementOverlay({ achievement, state, viewer, durationMs: req
     };
   }, [achievement.id, durationMs]);
 
-  return (
+  const overlay = (
     <div
       className={["achievement-backdrop", isCouple ? "couple-achievement" : "", played ? "achievement-played" : ""]
         .filter(Boolean)
@@ -59,9 +60,12 @@ export function AchievementOverlay({ achievement, state, viewer, durationMs: req
         }
       >
         <div className="achievement-stage-glow" aria-hidden="true" />
+        <div className="achievement-shockwave achievement-impact-wave" aria-hidden="true" />
+        <div className="achievement-shockwave achievement-final-wave" aria-hidden="true" />
 
-        <div className="achievement-burst" aria-hidden="true">
+        <div className="achievement-burst badge-slam" aria-hidden="true">
           {isCouple ? <Crown /> : <Trophy />}
+          <span>{isCouple ? "HOUSEHOLD LOCKED" : "WEEK LOCKED"}</span>
         </div>
 
         <p className="achievement-kicker">{copy}</p>
@@ -94,6 +98,8 @@ export function AchievementOverlay({ achievement, state, viewer, durationMs: req
       </section>
     </div>
   );
+
+  return typeof document === "undefined" ? overlay : createPortal(overlay, document.body);
 }
 
 function CoupleSlamMeter() {

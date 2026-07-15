@@ -78,6 +78,7 @@ export function PersonalTracker({
 
       <section className="mission-hero" aria-live="polite">
         <div className="hero-grid" aria-hidden="true" />
+        <p className="hero-eyebrow">WEEKLY MISSION // {user?.displayName ?? userSlug}</p>
         <p className="mission-status">
           <Crosshair aria-hidden="true" />
           {tone.headline}
@@ -103,6 +104,7 @@ export function PersonalTracker({
           disabled={busy}
           rewardClass={rewardClass}
           rewardDurationMs={rewardDurationMs}
+          idleLabel={count === target - 1 ? "Finish the week" : "Bank today's session"}
           onComplete={() => onLog(state.today, "hold")}
           onHoldStart={onHoldStart}
           onHoldCancel={onHoldCancel}

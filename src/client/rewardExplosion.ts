@@ -12,9 +12,10 @@ export type RewardExplosionKind =
   | "offscreen"
   | "stress";
 export type RewardEffectQuality = "low" | "normal" | "high" | "ridiculous";
+export type RewardIntensityLevel = "off" | RewardEffectQuality;
 export type ParticleIntensity = RewardEffectQuality;
 export type ScreenShakeLevel = "off" | "normal" | "heavy" | "ridiculous";
-export type FlashIntensity = "normal" | "high";
+export type FlashIntensity = "off" | "normal" | "high" | "ridiculous";
 export type EpicentreMode = "tile" | "tile-plus-secondary" | "multi-stage" | "multi-stage-offscreen";
 export type EffectDurationSource = "audio-metadata" | "configured-audio" | "fallback" | "fixed";
 
@@ -29,7 +30,13 @@ export interface RewardEpicentre extends RewardExplosionOrigin {
 }
 
 export interface RewardExplosionControls {
+  quality: RewardEffectQuality;
   particleIntensity: ParticleIntensity;
+  shardIntensity: RewardIntensityLevel;
+  fireworkIntensity: RewardIntensityLevel;
+  smokeIntensity: RewardIntensityLevel;
+  shockwaveIntensity: RewardIntensityLevel;
+  distortionIntensity: RewardIntensityLevel;
   screenShake: ScreenShakeLevel;
   flashIntensity: FlashIntensity;
   showTriggerPoint: boolean;
@@ -43,6 +50,7 @@ export interface ParticleCounts {
   smoke: number;
   shockwaves: number;
   fireworks: number;
+  sparkRain: number;
 }
 
 export interface RewardEffectDefinition {
@@ -53,6 +61,7 @@ export interface RewardEffectDefinition {
   impactAt: number;
   finalBurstAt: number;
   shakeMs: number;
+  distortionMs: number;
   counts: ParticleCounts;
 }
 
@@ -86,136 +95,156 @@ export interface RewardEffectMetrics {
   durationSource: EffectDurationSource;
   progress: number;
   performanceGuardActive: boolean;
+  spawnScale: number;
 }
 
 export interface RewardBurstEvent {
   atMs: number;
   epicentreIndex: number;
-  kind: "charge" | "impact" | "firework" | "final";
+  kind: "charge" | "impact" | "firework" | "rain" | "final";
   strength: number;
 }
 
 export const rewardEffectConfig: Record<RewardExplosionKind, RewardEffectDefinition> = {
-  daily: effect(2800, "fixed", "tile-plus-secondary", "normal", 0.14, 0.78, 320, {
-    sparks: 150,
-    shards: 42,
-    embers: 48,
-    smoke: 20,
-    shockwaves: 3,
-    fireworks: 2
-  }),
-  first: effect(3600, "fixed", "tile-plus-secondary", "high", 0.16, 0.8, 460, {
-    sparks: 220,
+  daily: effect(2800, "fixed", "tile-plus-secondary", "normal", 0.14, 0.78, 280, 1050, {
+    sparks: 175,
     shards: 70,
-    embers: 72,
-    smoke: 28,
+    embers: 62,
+    smoke: 22,
     shockwaves: 4,
-    fireworks: 4
+    fireworks: 3,
+    sparkRain: 46
   }),
-  momentum: effect(3600, "fixed", "tile-plus-secondary", "high", 0.16, 0.82, 480, {
-    sparks: 250,
-    shards: 74,
-    embers: 80,
-    smoke: 30,
-    shockwaves: 4,
-    fireworks: 4
+  first: effect(3600, "fixed", "multi-stage-offscreen", "high", 0.16, 0.8, 420, 1320, {
+    sparks: 280,
+    shards: 115,
+    embers: 92,
+    smoke: 32,
+    shockwaves: 6,
+    fireworks: 6,
+    sparkRain: 78
   }),
-  target: effect(5200, "fixed", "multi-stage", "high", 0.16, 0.84, 620, {
-    sparks: 350,
-    shards: 110,
-    embers: 120,
-    smoke: 42,
+  momentum: effect(3600, "fixed", "tile-plus-secondary", "high", 0.16, 0.82, 440, 1250, {
+    sparks: 290,
+    shards: 105,
+    embers: 96,
+    smoke: 34,
     shockwaves: 5,
-    fireworks: 6
+    fireworks: 5,
+    sparkRain: 76
   }),
-  weekly: effect(6000, "match-audio", "multi-stage", "high", 0.2, 0.82, 780, {
-    sparks: 520,
-    shards: 170,
-    embers: 190,
-    smoke: 64,
-    shockwaves: 8,
-    fireworks: 12
+  target: effect(5200, "fixed", "multi-stage", "high", 0.16, 0.84, 620, 1580, {
+    sparks: 390,
+    shards: 145,
+    embers: 145,
+    smoke: 48,
+    shockwaves: 7,
+    fireworks: 9,
+    sparkRain: 112
   }),
-  couple: effect(8000, "match-audio", "multi-stage-offscreen", "ridiculous", 0.34, 0.9, 1150, {
-    sparks: 880,
-    shards: 280,
-    embers: 310,
-    smoke: 96,
-    shockwaves: 14,
-    fireworks: 24
+  weekly: effect(6000, "match-audio", "multi-stage", "high", 0.2, 0.82, 720, 1900, {
+    sparks: 610,
+    shards: 210,
+    embers: 235,
+    smoke: 72,
+    shockwaves: 11,
+    fireworks: 15,
+    sparkRain: 185
   }),
-  hold: effect(3400, "fixed", "tile-plus-secondary", "high", 0.88, 0.9, 520, {
-    sparks: 220,
-    shards: 80,
-    embers: 64,
-    smoke: 28,
-    shockwaves: 4,
-    fireworks: 3
+  couple: effect(8000, "match-audio", "multi-stage-offscreen", "ridiculous", 0.34, 0.9, 1100, 2500, {
+    sparks: 980,
+    shards: 340,
+    embers: 370,
+    smoke: 108,
+    shockwaves: 17,
+    fireworks: 28,
+    sparkRain: 290
   }),
-  "screen-shake": effect(1600, "fixed", "tile", "low", 0.12, 0.72, 900, {
+  hold: effect(3400, "fixed", "tile-plus-secondary", "high", 0.88, 0.9, 460, 1320, {
+    sparks: 260,
+    shards: 92,
+    embers: 78,
+    smoke: 30,
+    shockwaves: 5,
+    fireworks: 4,
+    sparkRain: 64
+  }),
+  "screen-shake": effect(1600, "fixed", "tile", "low", 0.12, 0.72, 900, 720, {
     sparks: 32,
     shards: 10,
     embers: 14,
     smoke: 5,
     shockwaves: 2,
-    fireworks: 1
+    fireworks: 1,
+    sparkRain: 0
   }),
-  offscreen: effect(6200, "fixed", "multi-stage-offscreen", "high", 0.18, 0.84, 720, {
-    sparks: 430,
-    shards: 130,
-    embers: 150,
-    smoke: 48,
-    shockwaves: 10,
-    fireworks: 12
+  offscreen: effect(6200, "fixed", "multi-stage-offscreen", "high", 0.18, 0.84, 720, 1900, {
+    sparks: 480,
+    shards: 150,
+    embers: 175,
+    smoke: 54,
+    shockwaves: 12,
+    fireworks: 15,
+    sparkRain: 150
   }),
-  stress: effect(8000, "fixed", "multi-stage-offscreen", "ridiculous", 0.14, 0.86, 1200, {
-    sparks: 1100,
-    shards: 360,
-    embers: 360,
-    smoke: 120,
-    shockwaves: 16,
-    fireworks: 30
+  stress: effect(8000, "fixed", "multi-stage-offscreen", "ridiculous", 0.14, 0.86, 1200, 2500, {
+    sparks: 1200,
+    shards: 390,
+    embers: 420,
+    smoke: 132,
+    shockwaves: 20,
+    fireworks: 34,
+    sparkRain: 360
   })
 };
 
 export const rewardEffectLabels: Record<RewardExplosionKind, string> = {
-  daily: "Daily explosion",
-  first: "1/4 inertia explosion",
-  momentum: "2/4 momentum explosion",
-  target: "3/4 target-in-range explosion",
-  weekly: "4/4 weekly complete explosion",
-  couple: "8/8 couple mega explosion",
+  daily: "Daily rupture",
+  first: "1/4 inertia rupture",
+  momentum: "2/4 momentum rupture",
+  target: "3/4 target-in-range rupture",
+  weekly: "4/4 weekly complete",
+  couple: "8/8 couple mega rupture",
   hold: "Hold build-up rupture",
   "screen-shake": "Screen shake test",
   offscreen: "Off-screen epicentre test",
   stress: "Particle stress test"
 };
 
-const particleIntensityScale: Record<ParticleIntensity, number> = {
+const intensityScale: Record<RewardIntensityLevel, number> = {
+  off: 0,
   low: 0.42,
   normal: 0.7,
   high: 1,
-  ridiculous: 1.32
+  ridiculous: 1.16
 };
 
-const activeParticleCaps: Record<ParticleIntensity, number> = {
-  low: 220,
-  normal: 380,
-  high: 620,
-  ridiculous: 920
+const activeParticleCaps: Record<RewardEffectQuality, number> = {
+  low: 230,
+  normal: 400,
+  high: 660,
+  ridiculous: 940
 };
 
 const shakeScale: Record<ScreenShakeLevel, number> = {
   off: 0,
   normal: 1,
-  heavy: 1.3,
-  ridiculous: 1.65
+  heavy: 1.26,
+  ridiculous: 1.58
 };
 
+const automaticQuality = getDefaultRewardQuality();
+
 export const defaultRewardExplosionControls: RewardExplosionControls = {
-  particleIntensity: getDefaultRewardQuality(),
+  quality: automaticQuality,
+  particleIntensity: automaticQuality,
+  shardIntensity: automaticQuality,
+  fireworkIntensity: automaticQuality,
+  smokeIntensity: automaticQuality === "high" ? "normal" : automaticQuality,
+  shockwaveIntensity: automaticQuality,
+  distortionIntensity: automaticQuality,
   screenShake: "normal",
-  flashIntensity: "normal",
+  flashIntensity: "high",
   showTriggerPoint: false,
   reducedMotionPreview: false
 };
@@ -226,26 +255,31 @@ export function getRewardExplosionProfile(
   timing: RewardExplosionTiming = {}
 ): RewardExplosionProfile {
   const base = rewardEffectConfig[kind];
-  const requestedQuality = controls.reducedMotionPreview ? "low" : controls.particleIntensity;
+  const requestedQuality = controls.reducedMotionPreview ? "low" : controls.quality;
   const duration = resolveRewardEffectDuration(kind, timing.audioDurationMs, timing.durationSource);
-  const scale = particleIntensityScale[requestedQuality];
+  const particleLevel = controls.reducedMotionPreview ? "low" : controls.particleIntensity;
+  const shardLevel = controls.reducedMotionPreview ? "low" : controls.shardIntensity;
+  const fireworkLevel = controls.reducedMotionPreview ? "low" : controls.fireworkIntensity;
+  const smokeLevel = controls.reducedMotionPreview ? "low" : controls.smokeIntensity;
+  const shockwaveLevel = controls.reducedMotionPreview ? "low" : controls.shockwaveIntensity;
 
   return {
     ...base,
     kind,
     label: rewardEffectLabels[kind],
-    durationMs: controls.reducedMotionPreview ? Math.min(duration.durationMs, 1800) : duration.durationMs,
-    durationSource: controls.reducedMotionPreview ? "fixed" : duration.durationSource,
+    durationMs: duration.durationMs,
+    durationSource: duration.durationSource,
     quality: requestedQuality,
     activeParticleCap: activeParticleCaps[requestedQuality],
     shakeMs: controls.reducedMotionPreview ? 0 : Math.round(base.shakeMs * shakeScale[controls.screenShake]),
     counts: {
-      sparks: scaleCount(base.counts.sparks, scale),
-      shards: scaleCount(base.counts.shards, scale),
-      embers: scaleCount(base.counts.embers, scale),
-      smoke: scaleCount(base.counts.smoke, scale),
-      shockwaves: Math.max(1, scaleCount(base.counts.shockwaves, controls.reducedMotionPreview ? 0.25 : scale)),
-      fireworks: Math.max(1, scaleCount(base.counts.fireworks, controls.reducedMotionPreview ? 0.2 : scale))
+      sparks: scaleCount(base.counts.sparks, intensityScale[particleLevel]),
+      shards: scaleCount(base.counts.shards, intensityScale[shardLevel]),
+      embers: scaleCount(base.counts.embers, intensityScale[particleLevel]),
+      smoke: scaleCount(base.counts.smoke, intensityScale[smokeLevel]),
+      shockwaves: scaleCount(base.counts.shockwaves, intensityScale[shockwaveLevel]),
+      fireworks: scaleCount(base.counts.fireworks, intensityScale[fireworkLevel]),
+      sparkRain: scaleCount(base.counts.sparkRain, intensityScale[particleLevel])
     }
   };
 }
@@ -282,8 +316,17 @@ export function getRewardEpicentres(
     epicentre("tile-bottom-left", centre.x - Math.min(105, width * 0.2), centre.y + 92)
   ];
 
-  if (kind === "daily" || kind === "first" || kind === "momentum" || kind === "hold") {
+  if (kind === "daily" || kind === "momentum" || kind === "hold") {
     return tileSecondary;
+  }
+
+  if (kind === "first") {
+    return [
+      epicentre("tile", centre.x, centre.y),
+      epicentre("top-left-viewport", width * 0.08, height * 0.18),
+      epicentre("top-right-viewport", width * 0.92, height * 0.2),
+      epicentre("left-edge-offscreen", -width * 0.1, height * 0.46, true)
+    ];
   }
 
   if (kind === "screen-shake") {
@@ -336,14 +379,26 @@ export function buildRewardBurstTimeline(profile: RewardExplosionProfile, epicen
 
   const secondaryStart = duration * (profile.kind === "couple" ? 0.55 : 0.36);
   const secondaryEnd = Math.max(secondaryStart, finalMs - Math.min(420, duration * 0.04));
-  const fireworkCount = Math.max(1, profile.counts.fireworks);
-  for (let index = 0; index < fireworkCount; index += 1) {
-    const progress = fireworkCount === 1 ? 0 : index / (fireworkCount - 1);
+  for (let index = 0; index < profile.counts.fireworks; index += 1) {
+    const progress = profile.counts.fireworks === 1 ? 0 : index / (profile.counts.fireworks - 1);
     events.push({
       atMs: secondaryStart + (secondaryEnd - secondaryStart) * progress,
       epicentreIndex: (index + (profile.kind === "couple" ? 3 : 1)) % count,
       kind: "firework",
       strength: index % 4 === 0 ? 1.05 : 0.72
+    });
+  }
+
+  const rainBursts = Math.round(profile.counts.sparkRain / 24);
+  const rainStart = duration * (profile.kind === "couple" ? 0.58 : 0.38);
+  const rainEnd = Math.max(rainStart, finalMs - 100);
+  for (let index = 0; index < rainBursts; index += 1) {
+    const progress = rainBursts === 1 ? 0 : index / (rainBursts - 1);
+    events.push({
+      atMs: rainStart + (rainEnd - rainStart) * progress,
+      epicentreIndex: (index + count - 1) % count,
+      kind: "rain",
+      strength: index % 3 === 0 ? 0.95 : 0.68
     });
   }
 
@@ -415,6 +470,10 @@ export function getDefaultRewardQuality(): RewardEffectQuality {
   return cores >= 6 && deviceMemory >= 4 ? "high" : "normal";
 }
 
+export function getDistortionScale(level: RewardIntensityLevel): number {
+  return intensityScale[level];
+}
+
 function effect(
   durationMs: number,
   durationMode: RewardEffectDefinition["durationMode"],
@@ -423,9 +482,10 @@ function effect(
   impactAt: number,
   finalBurstAt: number,
   shakeMs: number,
+  distortionMs: number,
   counts: ParticleCounts
 ): RewardEffectDefinition {
-  return { durationMs, durationMode, epicentreMode, defaultIntensity, impactAt, finalBurstAt, shakeMs, counts };
+  return { durationMs, durationMode, epicentreMode, defaultIntensity, impactAt, finalBurstAt, shakeMs, distortionMs, counts };
 }
 
 function epicentre(id: string, x: number, y: number, offscreen = false): RewardEpicentre {

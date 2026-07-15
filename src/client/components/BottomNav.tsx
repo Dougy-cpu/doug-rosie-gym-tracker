@@ -12,7 +12,7 @@ export function BottomNav({ current, onNavigate }: BottomNavProps) {
       <NavButton active={current === "doug"} icon={<User />} label="Doug" onClick={() => onNavigate("doug")} />
       <NavButton active={current === "rosie"} icon={<Users />} label="Rosie" onClick={() => onNavigate("rosie")} />
       <NavButton active={current === "couple"} icon={<Heart />} label="Couple" onClick={() => onNavigate("couple")} />
-      <NavButton active={current === "sound-lab"} icon={<AudioLines />} label="Sound" onClick={() => onNavigate("sound-lab")} />
+      <NavButton active={current === "sound-lab"} icon={<AudioLines />} label="SFX" onClick={() => onNavigate("sound-lab")} />
     </nav>
   );
 }
