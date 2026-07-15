@@ -45,7 +45,7 @@
 
 ## Iteration History
 
-- P1 fixed: repeated screen-shake transforms could make Sound Lab achievement overlays position against a scrolled app surface. Shake now targets `.app-surface`, persistent transform containment was removed, and achievement overlays render through a body portal.
+- P1 fixed: repeated screen-shake transforms could make achievement overlays position against a scrolled app surface. Shake now targets the fixed reward canvas, distortion targets its fixed viewport layer, the app surface stays stable, and achievement overlays render through a body portal.
 - P1 fixed: an expanding achievement shockwave could intercept taps over the dismiss button. Decorative achievement layers now use `pointer-events: none`, with a regression test.
 - P2 fixed: Sound Lab's opening mission panel was too tall and created unnecessary empty space. Its mobile minimum height was reduced to 220px.
 - P2 fixed: transient horizontal overflow during large off-screen rings was guarded at the document and app-shell levels. Final route checks report a 375px document width inside the 390px browser viewport.

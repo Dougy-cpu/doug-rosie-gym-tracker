@@ -19,6 +19,67 @@ export const holdHapticMilestones: Array<{ progress: number; milestone: HoldHapt
   { progress: 0.8, milestone: "2400ms", pattern: [35, 20, 45] }
 ];
 
+let activeHoldPointerId: number | null = null;
+let activeHoldGuardCleanup: (() => void) | null = null;
+
+export function beginHoldInteractionGuard(pointerId: number): void {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return;
+  }
+
+  activeHoldGuardCleanup?.();
+  activeHoldPointerId = pointerId;
+
+  const root = document.documentElement;
+  const body = document.body;
+  const clearSelection = () => window.getSelection()?.removeAllRanges();
+  const blockNativeHoldAction = (event: Event) => {
+    event.preventDefault();
+    clearSelection();
+  };
+  const release = (event: PointerEvent) => endHoldInteractionGuard(event.pointerId);
+  const releaseAll = () => endHoldInteractionGuard();
+  const releaseWhenHidden = () => {
+    if (document.hidden) {
+      endHoldInteractionGuard();
+    }
+  };
+
+  root.classList.add("hold-interaction-active");
+  body?.classList.add("hold-interaction-active");
+  clearSelection();
+  document.addEventListener("selectstart", blockNativeHoldAction, true);
+  document.addEventListener("contextmenu", blockNativeHoldAction, true);
+  document.addEventListener("dragstart", blockNativeHoldAction, true);
+  document.addEventListener("pointerup", release, true);
+  document.addEventListener("pointercancel", release, true);
+  document.addEventListener("visibilitychange", releaseWhenHidden, true);
+  window.addEventListener("blur", releaseAll, true);
+
+  activeHoldGuardCleanup = () => {
+    root.classList.remove("hold-interaction-active");
+    body?.classList.remove("hold-interaction-active");
+    document.removeEventListener("selectstart", blockNativeHoldAction, true);
+    document.removeEventListener("contextmenu", blockNativeHoldAction, true);
+    document.removeEventListener("dragstart", blockNativeHoldAction, true);
+    document.removeEventListener("pointerup", release, true);
+    document.removeEventListener("pointercancel", release, true);
+    document.removeEventListener("visibilitychange", releaseWhenHidden, true);
+    window.removeEventListener("blur", releaseAll, true);
+    clearSelection();
+  };
+}
+
+export function endHoldInteractionGuard(pointerId?: number): void {
+  if (pointerId !== undefined && activeHoldPointerId !== pointerId) {
+    return;
+  }
+
+  activeHoldGuardCleanup?.();
+  activeHoldGuardCleanup = null;
+  activeHoldPointerId = null;
+}
+
 export function getHoldHapticPattern(milestone: HoldHapticMilestone): number | number[] {
   return holdHapticMilestones.find((entry) => entry.milestone === milestone)?.pattern ?? 12;
 }

@@ -14,10 +14,11 @@ describe("ultra mobile reward UI", () => {
     assert.match(source, /distortion-ring-red/);
     assert.match(source, /distortion-ring-cyan/);
     assert.match(source, /distortion-smear/);
-    assert.match(source, /surface\.animate/);
+    assert.match(source, /layer\.animate/);
     assert.match(source, /animation\.cancel\(\)/);
     assert.match(source, /top-left/);
     assert.match(source, /bottom-right/);
+    assert.doesNotMatch(source, /querySelector<HTMLElement>\("\.app-surface"\)/);
   });
 
   it("renders progress as numbered lock hardware instead of a plain bar", async () => {
@@ -37,5 +38,15 @@ describe("ultra mobile reward UI", () => {
     assert.match(source, /route === "sound-lab" \? setEffectMetrics : undefined/);
     assert.match(source, /DistortionShockwave request=\{explosionRequest\}/);
     assert.match(source, /className="app-surface"/);
+  });
+
+  it("keeps hold and reward motion inside interaction and viewport layers", async () => {
+    const styles = await readFile(stylesUrl, "utf8");
+
+    assert.match(styles, /html\.hold-interaction-active \.app-shell/);
+    assert.match(styles, /-webkit-touch-callout: none/);
+    assert.match(styles, /\.reward-explosion-canvas\.explosion-shake-ridiculous/);
+    assert.doesNotMatch(styles, /\.app-shell\.reward-[^{]+\.app-surface/);
+    assert.doesNotMatch(styles, /\.app-shell\.hold-shell-[^{]+\.app-surface/);
   });
 });

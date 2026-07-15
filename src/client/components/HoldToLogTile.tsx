@@ -1,7 +1,9 @@
 import { Check, Dumbbell } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
+  beginHoldInteractionGuard,
   createHoldGestureController,
+  endHoldInteractionGuard,
   HOLD_TO_CONFIRM_MS,
   type HoldGestureController,
   type HoldHapticMilestone
@@ -58,17 +60,6 @@ export function HoldToLogTile({
     };
   }, []);
 
-  useEffect(() => {
-    const shell = buttonRef.current?.closest(".app-shell");
-    const pressureClasses = ["hold-shell-cracking", "hold-shell-unstable", "hold-shell-critical"];
-    shell?.classList.remove(...pressureClasses);
-    if (holding && holdStage === "cracking") shell?.classList.add("hold-shell-cracking");
-    if (holding && holdStage === "unstable") shell?.classList.add("hold-shell-unstable");
-    if (holding && holdStage === "final-warning") shell?.classList.add("hold-shell-critical");
-
-    return () => shell?.classList.remove(...pressureClasses);
-  }, [holdStage, holding]);
-
   const handleProgress = (nextProgress: number) => {
     const tile = buttonRef.current;
     tile?.style.setProperty("--hold-progress-ratio", String(nextProgress));
@@ -82,6 +73,8 @@ export function HoldToLogTile({
       return;
     }
 
+    event.preventDefault();
+    beginHoldInteractionGuard(event.pointerId);
     event.currentTarget.setPointerCapture(event.pointerId);
     onRewardOriginChange(getOriginFromElement(event.currentTarget));
     event.currentTarget.style.setProperty("--hold-progress-ratio", "0");
@@ -120,6 +113,23 @@ export function HoldToLogTile({
     }
   };
 
+  const release = (event: React.PointerEvent<HTMLButtonElement>) => {
+    endHoldInteractionGuard(event.pointerId);
+    stop();
+  };
+
+  const leave = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === "mouse") {
+      release(event);
+    }
+  };
+
+  const suppressNativeHoldAction = (event: React.SyntheticEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+  };
+
   const shattering = rewardClass !== "reward-none";
   const label = busy ? "Banking..." : getHoldStageLabel(holdStage, idleLabel);
   const shatterIntensity = getShatterIntensity(rewardClass);
@@ -138,6 +148,7 @@ export function HoldToLogTile({
         .filter(Boolean)
         .join(" ")}
       type="button"
+      draggable={false}
       disabled={disabled || completed || busy}
       data-hold-stage={holdStage}
       style={
@@ -147,11 +158,16 @@ export function HoldToLogTile({
           "--hold-progress-percent": "0%"
         } as React.CSSProperties
       }
-      onClick={(event) => cancelHoldTileClickActivation(event, stop)}
+      onClick={(event) => {
+        endHoldInteractionGuard();
+        cancelHoldTileClickActivation(event, stop);
+      }}
+      onContextMenu={suppressNativeHoldAction}
+      onDragStart={suppressNativeHoldAction}
       onPointerDown={start}
-      onPointerUp={stop}
-      onPointerCancel={stop}
-      onPointerLeave={stop}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={leave}
       onLostPointerCapture={stop}
       onBlur={stop}
     >

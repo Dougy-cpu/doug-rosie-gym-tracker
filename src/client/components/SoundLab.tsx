@@ -721,7 +721,7 @@ export function SoundLab({
           >
             <Gauge />
             <span>Test Distortion Shockwave</span>
-            <small>Chromatic radial blast and app-wrapper recoil</small>
+            <small>Chromatic radial blast and viewport-layer recoil</small>
           </button>
           <button
             className="lab-test-button mega-test"

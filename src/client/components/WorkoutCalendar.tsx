@@ -4,7 +4,9 @@ import { compareIsoDates } from "../../shared/date.js";
 import type { CalendarDay } from "../../shared/date.js";
 import type { UserSlug } from "../../shared/types.js";
 import {
+  beginHoldInteractionGuard,
   createHoldGestureController,
+  endHoldInteractionGuard,
   HOLD_TO_CONFIRM_MS,
   type HoldGestureController,
   type HoldHapticMilestone
@@ -116,6 +118,8 @@ function HoldCalendarDayButton({
       return;
     }
 
+    event.preventDefault();
+    beginHoldInteractionGuard(event.pointerId);
     event.currentTarget.setPointerCapture(event.pointerId);
     event.currentTarget.style.setProperty("--calendar-hold-progress", "0");
     setHolding(true);
@@ -147,6 +151,23 @@ function HoldCalendarDayButton({
     }
   };
 
+  const release = (event: React.PointerEvent<HTMLButtonElement>) => {
+    endHoldInteractionGuard(event.pointerId);
+    stop();
+  };
+
+  const leave = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === "mouse") {
+      release(event);
+    }
+  };
+
+  const suppressNativeHoldAction = (event: React.SyntheticEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+  };
+
   return (
     <button
       ref={buttonRef}
@@ -154,12 +175,18 @@ function HoldCalendarDayButton({
       className={`${className} hold-calendar-day ${holding ? "holding" : ""} ${action === "remove" ? "calendar-remove-hold" : ""}`}
       data-calendar-action={action}
       type="button"
+      draggable={false}
       disabled={disabled}
-      onClick={(event) => cancelCalendarClickActivation(event, stop)}
+      onClick={(event) => {
+        endHoldInteractionGuard();
+        cancelCalendarClickActivation(event, stop);
+      }}
+      onContextMenu={suppressNativeHoldAction}
+      onDragStart={suppressNativeHoldAction}
       onPointerDown={start}
-      onPointerUp={stop}
-      onPointerCancel={stop}
-      onPointerLeave={stop}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={leave}
       onLostPointerCapture={stop}
       onBlur={stop}
     >

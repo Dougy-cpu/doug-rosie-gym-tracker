@@ -5,6 +5,7 @@ import {
   getRewardExplosionProfile,
   type RewardBurstEvent,
   type RewardEffectMetrics,
+  type RewardEffectQuality,
   type RewardEpicentre,
   type RewardExplosionRequest,
   type ScreenShakeLevel
@@ -96,7 +97,7 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
     }
 
     const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d", { alpha: true });
+    const context = canvas?.getContext("2d", { alpha: true, desynchronized: true });
     if (!canvas || !context) {
       return;
     }
@@ -112,7 +113,7 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
     const shockwaves: Shockwave[] = [];
     const flashes: FlashBurst[] = [];
     const smokeSprite = createSmokeSprite();
-    const shell = document.querySelector(".app-surface");
+    const shakeTarget = canvas;
     const shakeClass = getShakeClass(controls.screenShake, activeRequest.kind);
     let width = 0;
     let height = 0;
@@ -132,11 +133,17 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
     let performanceGuardActive = false;
     let finished = false;
 
-    const resize = () => {
-      const qualityRatio = profile.quality === "low" ? 1 : profile.quality === "normal" ? 1.35 : profile.quality === "high" ? 1.75 : 2;
+    const resize = (force = false) => {
+      const nextWidth = Math.round(window.visualViewport?.width ?? window.innerWidth);
+      const nextHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+      if (!force && width > 0 && Math.abs(nextWidth - width) < 2 && Math.abs(nextHeight - height) < 96) {
+        return;
+      }
+
+      const qualityRatio = getCanvasPixelRatioCap(profile.quality, nextWidth);
       ratio = Math.min(window.devicePixelRatio || 1, qualityRatio);
-      width = window.innerWidth;
-      height = window.innerHeight;
+      width = nextWidth;
+      height = nextHeight;
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
       canvas.style.width = `${width}px`;
@@ -145,6 +152,7 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       epicentres = getRewardEpicentres(activeRequest.kind, width, height, activeRequest.origin);
       timeline = buildRewardBurstTimeline(profile, epicentres.length);
     };
+    const handleResize = () => resize(false);
 
     const reportMetrics = (elapsed: number, force = false) => {
       if (!force && elapsed - lastMetricAt < 280) {
@@ -172,16 +180,16 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       }
 
       window.clearTimeout(shakeTimer);
-      shell?.classList.remove(shakeClass);
-      void (shell as HTMLElement | null)?.offsetWidth;
-      (shell as HTMLElement | null)?.style.setProperty(
+      shakeTarget.classList.remove(shakeClass);
+      void shakeTarget.offsetWidth;
+      shakeTarget.style.setProperty(
         "--explosion-shake-duration",
         `${Math.max(260, Math.round(profile.shakeMs * Math.min(1, strength)))}ms`
       );
-      shell?.classList.add(shakeClass);
+      shakeTarget.classList.add(shakeClass);
       shakeTimer = window.setTimeout(() => {
-        shell?.classList.remove(shakeClass);
-        (shell as HTMLElement | null)?.style.removeProperty("--explosion-shake-duration");
+        shakeTarget.classList.remove(shakeClass);
+        shakeTarget.style.removeProperty("--explosion-shake-duration");
       }, profile.shakeMs + 80);
     };
 
@@ -242,8 +250,8 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       previousFrameAt = now;
       averageFrameMs = averageFrameMs * 0.92 + frameMs * 0.08;
 
-      if (elapsed > 800 && averageFrameMs > 23 && elapsed - lastGuardAt > 850 && adaptiveSpawnScale > 0.36) {
-        adaptiveSpawnScale = Math.max(0.36, adaptiveSpawnScale * 0.8);
+      if (elapsed > 450 && averageFrameMs > 20 && elapsed - lastGuardAt > 650 && adaptiveSpawnScale > 0.34) {
+        adaptiveSpawnScale = Math.max(0.34, adaptiveSpawnScale * 0.8);
         performanceGuardActive = true;
         lastGuardAt = elapsed;
       }
@@ -263,6 +271,9 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       context.save();
       context.globalCompositeOperation = "source-over";
       for (const particle of particles) {
+        if (!isParticleInRenderBounds(particle, width, height)) {
+          continue;
+        }
         if (particle.type === "smoke") {
           drawSmoke(context, particle, smokeSprite);
         } else if (particle.type === "shard") {
@@ -274,12 +285,14 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       context.save();
       context.globalCompositeOperation = "lighter";
       for (const particle of particles) {
-        if (particle.type !== "smoke" && particle.type !== "shard") {
+        if (particle.type !== "smoke" && particle.type !== "shard" && isParticleInRenderBounds(particle, width, height)) {
           drawLuminousParticle(context, particle);
         }
       }
       for (const shockwave of shockwaves) {
-        drawShockwave(context, shockwave);
+        if (isShockwaveInRenderBounds(shockwave, width, height)) {
+          drawShockwave(context, shockwave);
+        }
       }
       if (controls.showTriggerPoint) {
         drawEpicentreMarkers(context, epicentres);
@@ -307,9 +320,10 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       }
     };
 
-    resize();
+    resize(true);
     reportMetrics(0, true);
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
     document.addEventListener("visibilitychange", onVisibilityChange);
     animationFrame = window.requestAnimationFrame(draw);
 
@@ -317,10 +331,11 @@ export function RewardExplosionCanvas({ request, onComplete, onMetrics }: Reward
       finished = true;
       window.cancelAnimationFrame(animationFrame);
       window.clearTimeout(shakeTimer);
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      shell?.classList.remove(shakeClass ?? "");
-      (shell as HTMLElement | null)?.style.removeProperty("--explosion-shake-duration");
+      shakeTarget.classList.remove(shakeClass ?? "");
+      shakeTarget.style.removeProperty("--explosion-shake-duration");
       particles.length = 0;
       particlePool.length = 0;
       shockwaves.length = 0;
@@ -728,6 +743,39 @@ function getPalette(type: ParticleType): [string, string] {
     return colors[Math.floor(Math.random() * colors.length)];
   }
   return ["#ffc928", "#ffffff"];
+}
+
+function getCanvasPixelRatioCap(quality: RewardEffectQuality, viewportWidth: number): number {
+  if (viewportWidth <= 600) {
+    if (quality === "low") return 1;
+    if (quality === "normal") return 1.15;
+    if (quality === "high") return 1.4;
+    return 1.65;
+  }
+
+  if (quality === "low") return 1;
+  if (quality === "normal") return 1.35;
+  if (quality === "high") return 1.75;
+  return 2;
+}
+
+function isParticleInRenderBounds(particle: Particle, width: number, height: number): boolean {
+  const margin = particle.type === "smoke" ? 150 : 84;
+  return particle.x >= -margin && particle.x <= width + margin && particle.y >= -margin && particle.y <= height + margin;
+}
+
+function isShockwaveInRenderBounds(shockwave: Shockwave, width: number, height: number): boolean {
+  if (shockwave.age <= 0) {
+    return false;
+  }
+
+  const radius = shockwave.radius + shockwave.age * shockwave.speed;
+  return (
+    shockwave.x + radius >= -32 &&
+    shockwave.x - radius <= width + 32 &&
+    shockwave.y + radius >= -32 &&
+    shockwave.y - radius <= height + 32
+  );
 }
 
 function getShakeClass(screenShake: ScreenShakeLevel, kind: RewardExplosionRequest["kind"]): string | null {

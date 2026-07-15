@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import {
   getDistortionScale,
   getRewardExplosionProfile,
@@ -14,13 +14,15 @@ interface DistortionRing {
 }
 
 export function DistortionShockwave({ request }: { request: RewardExplosionRequest | null }) {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (!request || request.controls.reducedMotionPreview || request.controls.distortionIntensity === "off") {
       return;
     }
 
-    const surface = document.querySelector<HTMLElement>(".app-surface");
-    if (!surface) {
+    const layer = layerRef.current;
+    if (!layer) {
       return;
     }
 
@@ -36,13 +38,13 @@ export function DistortionShockwave({ request }: { request: RewardExplosionReque
       pulseTimers.push(
         window.setTimeout(() => {
           pulseAnimations.push(
-            surface.animate(
+            layer.animate(
               [
-                { transform: "scale(1)", filter: "contrast(1) saturate(1)" },
-                { transform: `scale(${1 + 0.012 * scale})`, filter: "contrast(1.2) saturate(1.35)", offset: 0.12 },
-                { transform: "scale(0.994)", filter: "contrast(1.08) saturate(1.16)", offset: 0.34 },
-                { transform: "scale(1.006)", filter: "contrast(1.03) saturate(1.08)", offset: 0.58 },
-                { transform: "scale(1)", filter: "contrast(1) saturate(1)" }
+                { transform: "scale(1)", opacity: 1 },
+                { transform: `scale(${1 + 0.008 * scale})`, opacity: 1, offset: 0.16 },
+                { transform: "scale(0.997)", opacity: 0.96, offset: 0.42 },
+                { transform: "scale(1.003)", opacity: 1, offset: 0.68 },
+                { transform: "scale(1)", opacity: 1 }
               ],
               { duration: 540, easing: "cubic-bezier(0.08, 0.8, 0.2, 1)" }
             )
@@ -74,6 +76,7 @@ export function DistortionShockwave({ request }: { request: RewardExplosionReque
 
   return (
     <div
+      ref={layerRef}
       className={`distortion-shockwave distortion-${request.controls.distortionIntensity}`}
       data-distortion-kind={request.kind}
       aria-hidden="true"

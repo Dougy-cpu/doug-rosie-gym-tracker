@@ -98,7 +98,9 @@ describe("sound lab reward tests", () => {
     const source = await readFile(stylesUrl, "utf8");
 
     assert.match(source, /\.reward-daily \.hold-shockwave/);
-    assert.match(source, /\.reward-daily,\s*\n\.reward-first,/);
+    assert.match(source, /\.hold-tile\.reward-daily,/);
+    assert.match(source, /\.lab-reward-card\.reward-daily,/);
+    assert.doesNotMatch(source, /\.app-shell\.reward-[^{]+\.app-surface/);
     assert.match(source, /\.reward-explosion-overlay/);
     assert.match(source, /explosionShakeRidiculous/);
   });

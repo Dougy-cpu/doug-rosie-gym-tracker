@@ -11,7 +11,7 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /<canvas ref=\{canvasRef\}/);
     assert.match(source, /requestAnimationFrame/);
     assert.match(source, /cancelAnimationFrame/);
-    assert.match(source, /getContext\("2d", \{ alpha: true \}\)/);
+    assert.match(source, /getContext\("2d", \{ alpha: true, desynchronized: true \}\)/);
     assert.match(source, /globalCompositeOperation = "lighter"/);
   });
 
@@ -35,10 +35,12 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /particlePool/);
     assert.match(source, /pool\.pop\(\)/);
     assert.match(source, /pool\.push\(particle\)/);
-    assert.match(source, /averageFrameMs > 23/);
+    assert.match(source, /averageFrameMs > 20/);
     assert.match(source, /adaptiveSpawnScale/);
     assert.match(source, /visibilitychange/);
     assert.match(source, /onMetricsRef/);
+    assert.match(source, /getCanvasPixelRatioCap/);
+    assert.match(source, /isParticleInRenderBounds/);
   });
 
   it("supports multiple epicentres and isolates shake from fixed overlays", async () => {
@@ -47,7 +49,8 @@ describe("RewardExplosionCanvas", () => {
     assert.match(source, /activeRequest\.origin/);
     assert.match(source, /getRewardEpicentres/);
     assert.match(source, /buildRewardBurstTimeline/);
-    assert.match(source, /querySelector\("\.app-surface"\)/);
+    assert.match(source, /const shakeTarget = canvas/);
+    assert.doesNotMatch(source, /querySelector\("\.app-surface"\)/);
     assert.match(source, /classList\.add\(shakeClass\)/);
     assert.match(source, /classList\.remove\(shakeClass\)/);
   });

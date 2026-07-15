@@ -26,6 +26,23 @@
   box-sizing: border-box;
 }
 
+.hold-tile,
+.hold-tile *,
+.hold-calendar-day,
+.hold-calendar-day * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
+html.hold-interaction-active .app-shell,
+html.hold-interaction-active .app-shell * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
 html {
   min-height: 100%;
   overflow-x: hidden;
@@ -651,41 +668,30 @@ button:focus-visible {
   animation: shockwave var(--reward-duration, 760ms) ease-out;
 }
 
-.reward-daily,
-.reward-first,
-.reward-momentum,
-.reward-pressure,
-.reward-complete {
+.hold-tile.reward-daily,
+.hold-tile.reward-first,
+.hold-tile.reward-momentum,
+.hold-tile.reward-pressure,
+.hold-tile.reward-complete,
+.lab-reward-card.reward-daily,
+.lab-reward-card.reward-first,
+.lab-reward-card.reward-momentum,
+.lab-reward-card.reward-pressure,
+.lab-reward-card.reward-complete {
   animation: rewardPop var(--reward-duration, 620ms) ease-out;
 }
 
-.app-shell.reward-daily .app-surface {
-  animation: screenShake 160ms linear;
-}
-
-.app-shell.reward-first .app-surface {
-  animation: screenShake 230ms linear;
-}
-
-.app-shell.reward-pressure .app-surface {
-  animation: urgentScreenShake 300ms linear;
-}
-
-.app-shell.reward-complete .app-surface {
-  animation: heavyScreenShake 480ms linear;
-}
-
-.app-surface.explosion-shake-normal {
+.reward-explosion-canvas.explosion-shake-normal {
   will-change: transform;
   animation: explosionShakeNormal var(--explosion-shake-duration, 300ms) linear;
 }
 
-.app-surface.explosion-shake-heavy {
+.reward-explosion-canvas.explosion-shake-heavy {
   will-change: transform;
   animation: explosionShakeHeavy var(--explosion-shake-duration, 760ms) linear;
 }
 
-.app-surface.explosion-shake-ridiculous {
+.reward-explosion-canvas.explosion-shake-ridiculous {
   will-change: transform;
   animation: explosionShakeRidiculous var(--explosion-shake-duration, 1150ms) linear;
 }
@@ -704,6 +710,8 @@ button:focus-visible {
   inset: 0;
   width: 100%;
   height: 100%;
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
 }
 
 .reward-trigger-point {
@@ -1707,8 +1715,7 @@ button.calendar-day {
 
 .app-shell.haptics-fallback .hold-tile.holding,
 .app-shell.haptics-fallback .hold-calendar-day.holding {
-  animation: unsupportedHoldShake 82ms linear infinite;
-  filter: brightness(1.12) saturate(1.12);
+  animation: unsupportedHoldShake 180ms ease-in-out infinite;
 }
 
 .lab-reward-card {
@@ -2111,9 +2118,9 @@ button.calendar-day {
 
 @keyframes unsupportedHoldShake {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  25% { transform: translate3d(2px, -1px, 0); }
-  50% { transform: translate3d(-2px, 1px, 0); }
-  75% { transform: translate3d(1px, 1px, 0); }
+  25% { transform: translate3d(1px, -0.6px, 0); }
+  50% { transform: translate3d(-1px, 0.6px, 0); }
+  75% { transform: translate3d(0.6px, 0.6px, 0); }
 }
 
 @keyframes slamTogether {
@@ -2351,7 +2358,7 @@ button.calendar-day {
     inset 0 0 0 6px rgba(0, 0, 0, 0.48),
     inset 0 0 40px rgba(var(--accent-rgb), 0.08);
   transform: translateZ(0);
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .hold-tile::after {
@@ -2415,23 +2422,21 @@ button.calendar-day {
     0 0 60px rgba(var(--accent-rgb), 0.44),
     inset 0 0 58px rgba(var(--accent-rgb), 0.19),
     inset 0 0 0 7px rgba(0, 0, 0, 0.52);
-  animation: pressureMicroJitter 105ms linear infinite;
+  animation: pressureMicroJitter 320ms ease-in-out infinite;
 }
 
 .hold-tile.hold-stage-cracking {
-  animation-duration: 86ms;
+  animation-duration: 240ms;
 }
 
 .hold-tile.hold-stage-unstable {
   transform: scale(0.958) translateZ(0);
-  animation: pressureUnstable 62ms linear infinite;
-  filter: contrast(1.09) saturate(1.14);
+  animation: pressureUnstable 170ms ease-in-out infinite;
 }
 
 .hold-tile.hold-stage-final-warning {
   transform: scale(0.95) translateZ(0);
-  animation: pressureCritical 48ms linear infinite;
-  filter: contrast(1.16) saturate(1.28) brightness(1.12);
+  animation: pressureCritical 120ms ease-in-out infinite;
   box-shadow:
     0 0 84px rgba(255, 74, 22, 0.6),
     0 0 34px rgba(255, 231, 129, 0.32),
@@ -2865,6 +2870,9 @@ button.calendar-day {
   pointer-events: none;
   overflow: hidden;
   contain: strict;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 .distortion-ring {
@@ -2910,10 +2918,6 @@ button.calendar-day {
   filter: blur(1.5px);
 }
 
-.app-surface.distortion-surface-hit {
-  animation: distortionSurfacePulse 540ms cubic-bezier(0.08, 0.8, 0.2, 1) both;
-}
-
 .reward-explosion-overlay {
   mix-blend-mode: normal;
   contain: strict;
@@ -2933,25 +2937,23 @@ button.calendar-day {
 
 @keyframes pressureMicroJitter {
   0%, 100% { transform: translate3d(0, 0, 0) scale(0.966); }
-  25% { transform: translate3d(1px, -1px, 0) scale(0.966); }
-  50% { transform: translate3d(-1px, 1px, 0) scale(0.966); }
-  75% { transform: translate3d(1px, 1px, 0) scale(0.966); }
+  35% { transform: translate3d(0.6px, -0.6px, 0) scale(0.968); }
+  70% { transform: translate3d(-0.6px, 0.5px, 0) scale(0.965); }
 }
 
 @keyframes pressureUnstable {
   0%, 100% { transform: translate3d(0, 0, 0) scale(0.958); }
-  20% { transform: translate3d(3px, -2px, 0) rotate(-0.2deg) scale(0.958); }
-  40% { transform: translate3d(-3px, 2px, 0) rotate(0.18deg) scale(0.958); }
-  60% { transform: translate3d(2px, 2px, 0) rotate(-0.14deg) scale(0.958); }
-  80% { transform: translate3d(-2px, -2px, 0) rotate(0.12deg) scale(0.958); }
+  25% { transform: translate3d(1.5px, -1px, 0) rotate(-0.12deg) scale(0.958); }
+  50% { transform: translate3d(-1.5px, 1px, 0) rotate(0.1deg) scale(0.958); }
+  75% { transform: translate3d(1px, 1px, 0) rotate(-0.08deg) scale(0.958); }
 }
 
 @keyframes pressureCritical {
   0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
-  20% { transform: translate3d(5px, -3px, 0) rotate(-0.36deg) scale(0.95); }
-  40% { transform: translate3d(-5px, 3px, 0) rotate(0.32deg) scale(0.95); }
-  60% { transform: translate3d(4px, 2px, 0) rotate(-0.28deg) scale(0.95); }
-  80% { transform: translate3d(-4px, -2px, 0) rotate(0.24deg) scale(0.95); }
+  20% { transform: translate3d(2px, -1.5px, 0) rotate(-0.18deg) scale(0.95); }
+  40% { transform: translate3d(-2px, 1.5px, 0) rotate(0.16deg) scale(0.95); }
+  60% { transform: translate3d(1.5px, 1px, 0) rotate(-0.12deg) scale(0.95); }
+  80% { transform: translate3d(-1.5px, -1px, 0) rotate(0.1deg) scale(0.95); }
 }
 
 @keyframes crackPathReveal {
@@ -3047,49 +3049,6 @@ button.calendar-day {
   7% { opacity: calc(0.72 * var(--ring-strength)); }
   34% { opacity: calc(0.54 * var(--ring-strength)); filter: blur(0.35px); }
   100% { opacity: 0; transform: scale(calc(11 + var(--distortion-strength) * 3)); filter: blur(2px); }
-}
-
-@keyframes distortionSurfacePulse {
-  0% { transform: scale(1); filter: contrast(1) saturate(1); }
-  12% { transform: scale(var(--distortion-pulse-scale, 1.018)); filter: contrast(1.2) saturate(1.35); }
-  34% { transform: scale(0.994); filter: contrast(1.08) saturate(1.16); }
-  58% { transform: scale(1.006); filter: contrast(1.03) saturate(1.08); }
-  100% { transform: scale(1); filter: contrast(1) saturate(1); }
-}
-
-.app-shell.hold-shell-cracking .app-surface {
-  will-change: transform;
-  animation: holdShellCracking 110ms linear infinite;
-}
-
-.app-shell.hold-shell-unstable .app-surface {
-  will-change: transform;
-  animation: holdShellUnstable 78ms linear infinite;
-}
-
-.app-shell.hold-shell-critical .app-surface {
-  will-change: transform;
-  animation: holdShellCritical 56ms linear infinite;
-}
-
-@keyframes holdShellCracking {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0.5px, -0.5px, 0); }
-}
-
-@keyframes holdShellUnstable {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  25% { transform: translate3d(1px, -1px, 0); }
-  50% { transform: translate3d(-1px, 1px, 0); }
-  75% { transform: translate3d(1px, 1px, 0); }
-}
-
-@keyframes holdShellCritical {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  20% { transform: translate3d(2px, -1px, 0); }
-  40% { transform: translate3d(-2px, 1px, 0); }
-  60% { transform: translate3d(1px, 2px, 0); }
-  80% { transform: translate3d(-1px, -2px, 0); }
 }
 
 .lab-rupture-surface {

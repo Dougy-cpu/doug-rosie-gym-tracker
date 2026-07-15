@@ -64,4 +64,13 @@ describe("PersonalCalendar", () => {
     assert.equal(propagationStopped, 1);
     assert.equal(holdStopped, 1);
   });
+
+  it("suppresses native long-press selection without cancelling captured touch movement", () => {
+    const source = readFileSync(new URL("./components/WorkoutCalendar.tsx", import.meta.url), "utf8");
+
+    assert.match(source, /beginHoldInteractionGuard\(event\.pointerId\)/);
+    assert.match(source, /onContextMenu=\{suppressNativeHoldAction\}/);
+    assert.match(source, /draggable=\{false\}/);
+    assert.match(source, /event\.pointerType === "mouse"/);
+  });
 });

@@ -84,4 +84,17 @@ describe("HoldToLogTile", () => {
     assert.match(source, /getOriginFromElement\(event\.currentTarget\)/);
     assert.match(source, /onRewardOriginChange/);
   });
+
+  it("suppresses native long-press selection for the full pointer interaction", async () => {
+    const source = await readFile(holdTileUrl, "utf8");
+    const gestureSource = await readFile(holdGestureUrl, "utf8");
+
+    assert.match(source, /beginHoldInteractionGuard\(event\.pointerId\)/);
+    assert.match(source, /onContextMenu=\{suppressNativeHoldAction\}/);
+    assert.match(source, /draggable=\{false\}/);
+    assert.match(source, /event\.pointerType === "mouse"/);
+    assert.match(gestureSource, /document\.addEventListener\("selectstart"/);
+    assert.match(gestureSource, /document\.addEventListener\("contextmenu"/);
+    assert.match(gestureSource, /document\.addEventListener\("pointerup"/);
+  });
 });
